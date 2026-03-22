@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: ai-code-studio
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: VITE_ALIBABA_API_KEY
+        sync: false
+      - key: VITE_ALIBABA_BASE_URL
+        value: https://coding-intl.dashscope.aliyuncs.com/v1
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: MORPH_API_KEY
+        sync: false
+    healthCheckPath: /
+    autoDeploy: true

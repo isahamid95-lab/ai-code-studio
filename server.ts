@@ -37,9 +37,16 @@ async function startServer() {
   await ensureWorkspace();
 
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
   app.use(express.json({ limit: '10mb' }));
+
+  // COOP/COEP Headers for WebContainer API
+  app.use((req, res, next) => {
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+    res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+    next();
+  });
 
   // --- Enhanced AI Endpoints ---
 
@@ -1018,7 +1025,9 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`🚀 AI Code Studio running on http://localhost:${PORT}`);
+    console.log(`📁 Workspace: ${WORKSPACE_DIR}`);
+    console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
   });
 }
 
