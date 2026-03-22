@@ -34,6 +34,8 @@ export async function fetchFilesFromServer(): Promise<FileItem[] | null> {
           name: entry.name,
           content,
           language: getLanguage(entry.name),
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
         });
       }
     }
@@ -141,4 +143,59 @@ export function sendAgentRequest(model: string, messages: any[], mode: string): 
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ messages, model, mode })
   });
+}
+
+// --- Enhanced AI Endpoints ---
+export async function aiAnalyzeCode(code: string, filename: string): Promise<any> {
+  const res = await fetch('/api/ai/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, filename })
+  });
+  return res.json();
+}
+
+export async function aiGenerateTests(filename: string, testFramework: string = 'jest'): Promise<any> {
+  const res = await fetch('/api/ai/generate-tests', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filename, testFramework })
+  });
+  return res.json();
+}
+
+export async function aiRefactorCode(filename: string, improvements: string[]): Promise<any> {
+  const res = await fetch('/api/ai/refactor', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filename, improvements })
+  });
+  return res.json();
+}
+
+export async function aiExplainCode(code: string, filename: string, detailLevel: 'beginner' | 'intermediate' | 'expert' = 'intermediate'): Promise<any> {
+  const res = await fetch('/api/ai/explain', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, filename, detailLevel })
+  });
+  return res.json();
+}
+
+export async function aiDebugError(errorMessage: string, stackTrace: string, codeContext: string): Promise<any> {
+  const res = await fetch('/api/ai/debug', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ errorMessage, stackTrace, codeContext })
+  });
+  return res.json();
+}
+
+export async function aiOptimizeCode(code: string, filename: string): Promise<any> {
+  const res = await fetch('/api/ai/optimize', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, filename })
+  });
+  return res.json();
 }

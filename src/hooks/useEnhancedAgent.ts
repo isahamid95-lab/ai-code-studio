@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { ChatMessage } from '../types';
-import { sendAgentRequest, analyzeCode, generateTests, refactorCode } from '../services/api';
+import { sendAgentRequest, aiAnalyzeCode, aiGenerateTests, aiRefactorCode } from '../services/api';
 
 // Enhanced AI System Prompt
 const ENHANCED_SYSTEM_PROMPT = `
@@ -247,7 +247,7 @@ export function useEnhancedAgent(
     setAgentStatus('🔍 Kod analiz ediliyor...');
     
     try {
-      const analysis = await analyzeCode(code, filename);
+      const analysis = await aiAnalyzeCode(code, filename);
       setCodeQuality(analysis);
       setAgentStatus(`✅ Analiz tamamlandı - Skor: ${analysis.score}/100`);
       return analysis;
@@ -265,7 +265,7 @@ export function useEnhancedAgent(
     setAgentStatus('🧪 Testler oluşturuluyor...');
     
     try {
-      const result = await generateTests(filename, testFramework);
+      const result = await aiGenerateTests(filename, testFramework);
       if (result.testFile) {
         applyFileFromAgent(result.testFile.filename, result.testFile.content);
         setAgentStatus(`✅ ${result.testCount} test oluşturuldu`);
@@ -285,7 +285,7 @@ export function useEnhancedAgent(
     setAgentStatus('♻️ Kod iyileştiriliyor...');
     
     try {
-      const result = await refactorCode(filename, improvements);
+      const result = await aiRefactorCode(filename, improvements);
       if (result.refactoredCode) {
         applyFileFromAgent(filename, result.refactoredCode);
         setAgentStatus('✅ Kod iyileştirildi');

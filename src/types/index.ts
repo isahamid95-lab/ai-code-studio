@@ -16,6 +16,8 @@ export interface ChatMessage {
   role: 'user' | 'model' | 'system';
   text: string;
   timestamp?: number;
+  isHidden?: boolean;
+  displayText?: string;
 }
 
 export interface GitStatus {
@@ -31,6 +33,18 @@ export interface TerminalOutput {
   type: 'info' | 'success' | 'error' | 'warning';
   text: string;
   timestamp: number;
+}
+
+export interface LogEntry {
+  type: 'info' | 'success' | 'error' | 'warning';
+  text: string;
+  timestamp?: number;
+}
+
+export interface FileTemplate {
+  name: string;
+  defaultExt: string;
+  content: string;
 }
 
 // Enhanced AI Types

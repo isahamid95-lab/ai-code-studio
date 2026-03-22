@@ -66,7 +66,9 @@ export function useChat(
           id: name,
           name,
           language: detectLanguage(name),
-          content
+          content,
+          createdAt: Date.now(),
+          updatedAt: Date.now()
         };
         setFiles(prev => [...prev, newFile]);
         setOpenTabs(prev => prev.includes(name) ? prev : [...prev, name]);

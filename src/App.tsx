@@ -31,6 +31,8 @@ const ShortcutsModal = React.lazy(() => import('./components/ShortcutsModal').th
 import { Breadcrumbs } from './components/Breadcrumbs';
 import { SearchPanel } from './components/SearchPanel';
 import { SymbolOutline } from './components/SymbolOutline';
+import { AIIntelPanel } from './components/AIIntelPanel';
+import { Zap } from 'lucide-react';
 
 // Initialize Gemini API
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -50,7 +52,7 @@ export default function App() {
   // --- Panel State ---
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
-  const [leftPanelTab, setLeftPanelTab] = useState<'explorer' | 'search' | 'git' | 'outline'>('explorer');
+  const [leftPanelTab, setLeftPanelTab] = useState<'explorer' | 'search' | 'git' | 'outline' | 'intel'>('explorer');
 
   // --- Settings State ---
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -278,6 +280,13 @@ export default function App() {
                     >
                       Outline
                     </button>
+                    <button 
+                      onClick={() => setLeftPanelTab('intel')}
+                      className={`text-[11px] font-bold uppercase tracking-[0.2em] transition-all cursor-pointer ${leftPanelTab === 'intel' ? 'text-primary' : 'text-text/30 hover:text-text/60'}`}
+                      title="AI Intelligence"
+                    >
+                      <Zap size={14} className={leftPanelTab === 'intel' ? 'animate-pulse' : ''} />
+                    </button>
                   </div>
                   {leftPanelTab === 'explorer' && (
                     <button 
@@ -340,6 +349,12 @@ export default function App() {
                         console.log("Jump to line:", line);
                         // Future: Scroll editor to line
                       }}
+                    />
+                  )}
+                  {leftPanelTab === 'intel' && (
+                    <AIIntelPanel 
+                      activeFile={fileHook.activeFile || null} 
+                      onRefreshWorkspace={fileHook.fetchFiles}
                     />
                   )}
                 </div>

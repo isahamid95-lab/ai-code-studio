@@ -169,7 +169,9 @@ export function useFiles() {
       id: newFileName.trim(),
       name: newFileName.trim(),
       language: detectLanguage(newFileName.trim()),
-      content
+      content,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
     };
     setFiles(prev => [...prev, newFile]);
     setOpenTabs(prev => [...prev, newFile.id]);
@@ -203,9 +205,9 @@ export function useFiles() {
     setFiles(prev => {
       const existing = prev.find(f => f.id === filename || f.name === filename);
       if (existing) {
-        return prev.map(f => f.id === existing.id ? { ...f, content, language: lang } : f);
+        return prev.map(f => f.id === existing.id ? { ...f, content, language: lang, updatedAt: Date.now() } : f);
       }
-      return [...prev, { id: filename, name: displayName, language: lang, content }];
+      return [...prev, { id: filename, name: displayName, language: lang, content, createdAt: Date.now(), updatedAt: Date.now() }];
     });
     setOpenTabs(prev => prev.includes(filename) ? prev : [...prev, filename]);
     setActiveTabId(filename);
