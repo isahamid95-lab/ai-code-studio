@@ -15,6 +15,10 @@ if (!fsSync.existsSync(WORKSPACE_DIR)) {
 }
 const git = simpleGit(WORKSPACE_DIR);
 
+// Enhanced AI API Base URL
+const AI_BASE_URL = process.env.VITE_ALIBABA_BASE_URL || 'https://coding-intl.dashscope.aliyuncs.com/v1';
+const AI_API_KEY = process.env.VITE_ALIBABA_API_KEY;
+
 // Path traversal protection
 function safePath(userPath: string): string | null {
   const resolved = path.resolve(WORKSPACE_DIR, userPath);
@@ -23,6 +27,270 @@ function safePath(userPath: string): string | null {
   }
   return resolved;
 }
+
+// --- Enhanced AI Endpoints ---
+
+// Code Analysis Endpoint
+app.post('/api/ai/analyze', async (req, res) => {
+  try {
+    const { code, filename } = req.body;
+    
+    const messages = [
+      {
+        role: 'system',
+        content: `You are a code quality expert. Analyze the code for bugs, security issues, performance problems, and style violations. Return a JSON response with:
+        - score: 0-100
+        - issues: array of {severity, category, message, line?, suggestion}
+        - suggestions: array of improvement tips
+        
+        Categories: bug, security, performance, style
+        Severity: critical, warning, info`
+      },
+      {
+        role: 'user',
+        content: `Analyze this ${filename} code:\n\n${code}`
+      }
+    ];
+
+    const response = await fetch(`${AI_BASE_URL}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${AI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'qwen3-coder-plus',
+        messages,
+        response_format: { type: 'json_object' }
+      })
+    });
+
+    const data = await response.json();
+    const analysis = JSON.parse(data.choices[0].message.content);
+    
+    res.json(analysis);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Test Generation Endpoint
+app.post('/api/ai/generate-tests', async (req, res) => {
+  try {
+    const { filename, testFramework } = req.body;
+    const filePath = path.join(WORKSPACE_DIR, filename);
+    const code = await fs.readFile(filePath, 'utf-8');
+    
+    const testFilename = filename.replace(/\.ts$|\.js$|\.tsx$|\.jsx$/, `.test.ts`);
+    
+    const messages = [
+      {
+        role: 'system',
+        content: `You are a testing expert. Generate comprehensive unit tests using ${testFramework}. 
+        Include:
+        - Happy path tests
+        - Edge cases
+        - Error handling tests
+        - Mock external dependencies
+        
+        Return JSON: { testFile: { filename, content }, testCount, coverage }`
+      },
+      {
+        role: 'user',
+        content: `Generate tests for:\n\n${code}`
+      }
+    ];
+
+    const response = await fetch(`${AI_BASE_URL}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${AI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'qwen3-coder-plus',
+        messages,
+        response_format: { type: 'json_object' }
+      })
+    });
+
+    const data = await response.json();
+    const result = JSON.parse(data.choices[0].message.content);
+    
+    // Save test file
+    const testPath = path.join(WORKSPACE_DIR, testFilename);
+    await fs.writeFile(testPath, result.testFile.content, 'utf-8');
+    
+    res.json({
+      testFile: { filename: testFilename, content: result.testFile.content },
+      testCount: result.testCount,
+      coverage: result.coverage
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Code Refactoring Endpoint
+app.post('/api/ai/refactor', async (req, res) => {
+  try {
+    const { filename, improvements } = req.body;
+    const filePath = path.join(WORKSPACE_DIR, filename);
+    const code = await fs.readFile(filePath, 'utf-8');
+    
+    const messages = [
+      {
+        role: 'system',
+        content: `You are a refactoring expert. Improve the code for: ${improvements.join(', ')}.
+        Return JSON: { refactoredCode, changes: string[], beforeScore, afterScore }`
+      },
+      {
+        role: 'user',
+        content: `Refactor this code:\n\n${code}`
+      }
+    ];
+
+    const response = await fetch(`${AI_BASE_URL}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${AI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'qwen3-coder-plus',
+        messages,
+        response_format: { type: 'json_object' }
+      })
+    });
+
+    const data = await response.json();
+    const result = JSON.parse(data.choices[0].message.content);
+    
+    // Save refactored code
+    await fs.writeFile(filePath, result.refactoredCode, 'utf-8');
+    
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Code Explanation Endpoint
+app.post('/api/ai/explain', async (req, res) => {
+  try {
+    const { code, filename, detailLevel } = req.body;
+    
+    const messages = [
+      {
+        role: 'system',
+        content: `You are a coding teacher. Explain this code at ${detailLevel} level.
+        Return JSON: { explanation, concepts, examples, resources }`
+      },
+      {
+        role: 'user',
+        content: `Explain this ${filename} code:\n\n${code}`
+      }
+    ];
+
+    const response = await fetch(`${AI_BASE_URL}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${AI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'qwen3-coder-plus',
+        messages,
+        response_format: { type: 'json_object' }
+      })
+    });
+
+    const data = await response.json();
+    const explanation = JSON.parse(data.choices[0].message.content);
+    
+    res.json(explanation);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Debug Error Endpoint
+app.post('/api/ai/debug', async (req, res) => {
+  try {
+    const { errorMessage, stackTrace, codeContext } = req.body;
+    
+    const messages = [
+      {
+        role: 'system',
+        content: `You are a debugging expert. Analyze the error and provide a fix.
+        Return JSON: { rootCause, fix, prevention }`
+      },
+      {
+        role: 'user',
+        content: `Error: ${errorMessage}\n\nStack Trace: ${stackTrace}\n\nCode Context:\n${codeContext}`
+      }
+    ];
+
+    const response = await fetch(`${AI_BASE_URL}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${AI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'qwen3-coder-plus',
+        messages,
+        response_format: { type: 'json_object' }
+      })
+    });
+
+    const data = await response.json();
+    const debug = JSON.parse(data.choices[0].message.content);
+    
+    res.json(debug);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Performance Optimization Endpoint
+app.post('/api/ai/optimize', async (req, res) => {
+  try {
+    const { code, filename } = req.body;
+    
+    const messages = [
+      {
+        role: 'system',
+        content: `You are a performance optimization expert. Optimize this code for speed and memory.
+        Return JSON: { optimizedCode, improvements, beforeMetrics, afterMetrics }`
+      },
+      {
+        role: 'user',
+        content: `Optimize this ${filename} code:\n\n${code}`
+      }
+    ];
+
+    const response = await fetch(`${AI_BASE_URL}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${AI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'qwen3-coder-plus',
+        messages,
+        response_format: { type: 'json_object' }
+      })
+    });
+
+    const data = await response.json();
+    const optimization = JSON.parse(data.choices[0].message.content);
+    
+    res.json(optimization);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 async function ensureWorkspace() {
   // Already ensured synchronously above
