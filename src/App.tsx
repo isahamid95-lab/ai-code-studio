@@ -18,6 +18,7 @@ import { useFiles } from './hooks/useFiles';
 import { useGit } from './hooks/useGit';
 import { useChat } from './hooks/useChat';
 import { useAgent } from './hooks/useAgent';
+import { themes, applyTheme, getStoredTheme, getDefaultTheme } from './themes';
 
 const Header = React.lazy(() => import('./components/Header'));
 import FileExplorer from './components/FileExplorer';
@@ -28,6 +29,8 @@ const SettingsModal = React.lazy(() => import('./components/SettingsModal'));
 const PreviewPanel = React.lazy(() => import('./components/PreviewPanel'));
 const CommandPalette = React.lazy(() => import('./components/CommandPalette').then(m => ({ default: m.CommandPalette })));
 const ShortcutsModal = React.lazy(() => import('./components/ShortcutsModal').then(m => ({ default: m.ShortcutsModal })));
+const ThemeSelector = React.lazy(() => import('./components/ThemeSelector'));
+const GlobalSearchModal = React.lazy(() => import('./components/GlobalSearchModal'));
 import { Breadcrumbs } from './components/Breadcrumbs';
 import { SearchPanel } from './components/SearchPanel';
 import { SymbolOutline } from './components/SymbolOutline';
@@ -57,6 +60,8 @@ export default function App() {
   // --- Settings State ---
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+  const [isThemeSelectorOpen, setIsThemeSelectorOpen] = useState(false);
+  const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
   const [aiProvider, setAiProvider] = useState<AiProvider>('alibaba');
   const [alibabaApiKey, setAlibabaApiKey] = useState(import.meta.env.VITE_ALIBABA_API_KEY || '');
   const [alibabaModel, setAlibabaModel] = useState('qwen3-coder-plus');
@@ -120,6 +125,14 @@ export default function App() {
     gitHook.fetchGitStatus();
   }, []);
 
+  // Apply stored theme on mount
+  useEffect(() => {
+    const storedTheme = getStoredTheme()
+    if (storedTheme) {
+      applyTheme(storedTheme)
+    }
+  }, [])
+
   // --- Keyboard Shortcuts ---
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -130,6 +143,12 @@ export default function App() {
       if (cmdKey && e.key === 'k') {
         e.preventDefault();
         setIsCommandPaletteOpen(prev => !prev);
+      }
+      
+      // Cmd+Shift+F / Ctrl+Shift+F — Global Search
+      if (cmdKey && e.shiftKey && e.key === 'F') {
+        e.preventDefault();
+        setIsGlobalSearchOpen(true);
       }
       
       // Cmd+B / Ctrl+B — Toggle left panel
@@ -691,6 +710,20 @@ export default function App() {
                    chatHook.setChatMessages([]);
                 }
               }}
+            />
+          )}
+          {isThemeSelectorOpen && (
+            <ThemeSelector
+              isOpen={isThemeSelectorOpen}
+              onClose={() => setIsThemeSelectorOpen(false)}
+            />
+          )}
+          {isGlobalSearchOpen && (
+            <GlobalSearchModal
+              isOpen={isGlobalSearchOpen}
+              onClose={() => setIsGlobalSearchOpen(false)}
+              files={fileHook.files}
+              onOpenFile={fileHook.openFile}
             />
           )}
         </AnimatePresence>

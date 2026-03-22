@@ -377,6 +377,36 @@ async function startServer() {
       {
         type: 'function',
         function: {
+          name: 'edit_file',
+          description: 'Edit specific parts of a file. Use this for targeted changes instead of rewriting entire files.',
+          parameters: {
+            type: 'object',
+            properties: {
+              filename: { type: 'string', description: 'File to edit' },
+              oldContent: { type: 'string', description: 'The exact text to find and replace' },
+              newContent: { type: 'string', description: 'The new text to replace with' }
+            },
+            required: ['filename', 'oldContent', 'newContent']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'delete_file',
+          description: 'Delete a file from the workspace',
+          parameters: {
+            type: 'object',
+            properties: {
+              filename: { type: 'string', description: 'File to delete' }
+            },
+            required: ['filename']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
           name: 'run_command',
           description: 'Execute a shell command in the project workspace. Use this for: npm init, npx create-vite, npm install, npm run build, node scripts, mkdir, etc. The command runs in the workspace directory.',
           parameters: {
@@ -385,6 +415,21 @@ async function startServer() {
               command: { type: 'string', description: 'Shell command to execute, e.g. "npm init -y" or "npx create-vite@latest . --template react"' }
             },
             required: ['command']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'install_package',
+          description: 'Install npm packages. Prefer this over run_command for package installation.',
+          parameters: {
+            type: 'object',
+            properties: {
+              packages: { type: 'array', items: { type: 'string' }, description: 'Package names to install' },
+              dev: { type: 'boolean', description: 'Install as devDependency (default: false)' }
+            },
+            required: ['packages']
           }
         }
       },
@@ -406,6 +451,21 @@ async function startServer() {
           name: 'list_files',
           description: 'List all files in the workspace',
           parameters: { type: 'object', properties: {} }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'search_code',
+          description: 'Search for code patterns across all files in the workspace',
+          parameters: {
+            type: 'object',
+            properties: {
+              query: { type: 'string', description: 'Search query or regex pattern' },
+              filePattern: { type: 'string', description: 'Glob pattern to filter files (e.g. "*.tsx")' }
+            },
+            required: ['query']
+          }
         }
       }
     ];
@@ -522,6 +582,93 @@ async function startServer() {
               }
               await listDir(WORKSPACE_DIR);
               result = fileList.join('\n') || 'No files';
+            } else if (toolCall.function.name === 'edit_file') {
+              const safeFull = safePath(args.filename);
+              if (!safeFull) {
+                result = `Error: Invalid file path: ${args.filename}`;
+              } else {
+                try {
+                  let content = await fs.readFile(safeFull, 'utf-8');
+                  if (!content.includes(args.oldContent)) {
+                    result = `Error: Could not find the specified text to replace in ${args.filename}`;
+                  } else {
+                    content = content.replace(args.oldContent, args.newContent);
+                    await fs.writeFile(safeFull, content, 'utf-8');
+                    send({ type: 'file_edited', filename: args.filename });
+                    result = `Edited ${args.filename} successfully`;
+                  }
+                } catch (err: any) {
+                  result = `Error editing file: ${err.message}`;
+                }
+              }
+            } else if (toolCall.function.name === 'delete_file') {
+              const safeFull = safePath(args.filename);
+              if (!safeFull) {
+                result = `Error: Invalid file path: ${args.filename}`;
+              } else {
+                try {
+                  await fs.unlink(safeFull);
+                  send({ type: 'file_deleted', filename: args.filename });
+                  result = `Deleted ${args.filename}`;
+                } catch (err: any) {
+                  result = `Error deleting file: ${err.message}`;
+                }
+              }
+            } else if (toolCall.function.name === 'install_package') {
+              const packages = args.packages.join(' ');
+              const devFlag = args.dev ? '-D' : '';
+              const command = `npm install ${devFlag} ${packages}`.trim();
+              send({ type: 'command_start', command });
+              try {
+                const { exec } = await import('child_process');
+                const util = await import('util');
+                const execPromise = util.promisify(exec);
+                const { stdout, stderr } = await execPromise(command, {
+                  cwd: WORKSPACE_DIR,
+                  timeout: 120000,
+                  env: { ...process.env, FORCE_COLOR: '0', HOME: process.env.HOME || '/root' }
+                });
+                const output = stdout || stderr || 'Packages installed';
+                send({ type: 'command_output', command, output });
+                result = output;
+              } catch (cmdErr: any) {
+                const errOutput = cmdErr.stderr || cmdErr.stdout || cmdErr.message;
+                send({ type: 'command_output', command, output: errOutput, error: true });
+                result = `Install error: ${errOutput}`;
+              }
+            } else if (toolCall.function.name === 'search_code') {
+              const results: { file: string; line: number; content: string }[] = [];
+              const query = args.query;
+              const filePattern = args.filePattern || '*';
+              
+              async function searchInDir(dir: string, rel: string = '') {
+                const entries = await fs.readdir(dir, { withFileTypes: true });
+                for (const e of entries) {
+                  if (e.name === '.git' || e.name === 'node_modules') continue;
+                  const relPath = rel ? `${rel}/${e.name}` : e.name;
+                  const fullPath = path.join(dir, e.name);
+                  if (e.isDirectory()) {
+                    await searchInDir(fullPath, relPath);
+                  } else {
+                    // Check file pattern
+                    const minimatch = (await import('minimatch')).minimatch;
+                    if (!minimatch(e.name, filePattern) && filePattern !== '*') continue;
+                    
+                    try {
+                      const content = await fs.readFile(fullPath, 'utf-8');
+                      const lines = content.split('\n');
+                      lines.forEach((line, idx) => {
+                        if (line.toLowerCase().includes(query.toLowerCase())) {
+                          results.push({ file: relPath, line: idx + 1, content: line.trim() });
+                        }
+                      });
+                    } catch { /* skip unreadable files */ }
+                  }
+                }
+              }
+              await searchInDir(WORKSPACE_DIR);
+              result = results.slice(0, 50).map(r => `${r.file}:${r.line}: ${r.content}`).join('\n') || 'No results found';
+              send({ type: 'search_results', query, count: results.length });
             }
           } catch (e: any) {
             result = `Error: ${e.message}`;
