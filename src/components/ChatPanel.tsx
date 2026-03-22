@@ -6,7 +6,7 @@ import {
   Sparkles, Send, Loader2, MoreVertical, Lightbulb,
   TerminalSquare, FileCode2, CheckCircle2, Zap, FolderOpen
 } from 'lucide-react';
-import type { ChatMessage, FileItem, AiProvider } from '../types';
+import type { ChatMessage, FileItem } from '../types';
 
 interface ChatPanelProps {
   chatMessages: ChatMessage[];
@@ -18,7 +18,6 @@ interface ChatPanelProps {
   activeFile: FileItem | undefined;
   files: FileItem[];
   selectedCode: string;
-  aiProvider: AiProvider;
   alibabaModel: string;
   isTerminalOpen: boolean;
   chatEndRef: React.RefObject<HTMLDivElement | null>;
@@ -90,7 +89,6 @@ const ChatPanel = React.memo(function ChatPanel({
   agentStatus,
   activeFile,
   selectedCode,
-  aiProvider,
   alibabaModel,
   isTerminalOpen,
   chatEndRef,
@@ -177,7 +175,7 @@ const ChatPanel = React.memo(function ChatPanel({
           <div>
             <span className="text-sm font-semibold text-text tracking-wide block">
               {agentMode ? 'AI Agent' : planMode ? 'Plan Mode' : 
-               aiProvider === 'alibaba' ? 'AI Assistant' : 'Gemini Assistant'}
+               'AI Assistant'}
             </span>
             {agentMode && (
               <span className="text-[10px] text-primary/70 font-medium">Full-stack kodlama</span>
@@ -208,7 +206,7 @@ const ChatPanel = React.memo(function ChatPanel({
                 </div>
                 <div className={`flex-1 min-w-0 ${msg.role === 'user' ? 'text-right' : ''}`}>
                   <div className="text-xs text-text/40 mb-1.5 font-medium uppercase tracking-wider">
-                    {msg.role === 'user' ? 'You' : (aiProvider === 'alibaba' ? alibabaModel || 'Qwen' : 'Gemini')}
+                    {msg.role === 'user' ? 'You' : alibabaModel || 'Qwen'}
                   </div>
                   
                   {msg.role === 'user' ? (

@@ -1,6 +1,6 @@
 export type Language = 'javascript' | 'typescript' | 'css' | 'html' | 'json' | 'markdown' | 'python' | 'java' | 'cpp' | 'go' | 'rust' | 'other';
 
-export type AiProvider = 'alibaba' | 'gemini';
+export type AiProvider = 'alibaba';
 
 export interface FileItem {
   id: string;

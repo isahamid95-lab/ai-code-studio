@@ -12,8 +12,6 @@ services:
         sync: false
       - key: VITE_ALIBABA_BASE_URL
         value: https://coding-intl.dashscope.aliyuncs.com/v1
-      - key: GEMINI_API_KEY
-        sync: false
       - key: MORPH_API_KEY
         sync: false
     healthCheckPath: /

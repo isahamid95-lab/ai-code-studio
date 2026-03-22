@@ -1,23 +1,18 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Settings, X, Trash2 } from 'lucide-react';
-import type { AiProvider } from '../types';
 
 interface SettingsModalProps {
-  aiProvider: AiProvider;
   alibabaApiKey: string;
   alibabaModel: string;
-  onSetAiProvider: (val: AiProvider) => void;
   onSetAlibabaApiKey: (val: string) => void;
   onSetAlibabaModel: (val: string) => void;
   onClose: () => void;
 }
 
 const SettingsModal = React.memo(function SettingsModal({
-  aiProvider,
   alibabaApiKey,
   alibabaModel,
-  onSetAiProvider,
   onSetAlibabaApiKey,
   onSetAlibabaModel,
   onClose,
@@ -48,24 +43,11 @@ const SettingsModal = React.memo(function SettingsModal({
         </div>
         
         <div className="p-6 flex flex-col gap-6">
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-text/80">AI Provider</label>
-            <select
-              value={aiProvider}
-              onChange={(e) => onSetAiProvider(e.target.value as AiProvider)}
-              className="w-full bg-secondary/40 text-sm text-text px-3 py-2.5 border border-white/10 rounded-lg outline-none focus:border-primary/50 transition-colors"
-            >
-              <option value="gemini">Google Gemini (Default)</option>
-              <option value="alibaba">Alibaba Cloud Coding Plan</option>
-            </select>
-          </div>
-
-          {aiProvider === 'alibaba' && (
-            <motion.div 
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              className="flex flex-col gap-4 overflow-hidden"
-            >
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            className="flex flex-col gap-4 overflow-hidden"
+          >
                <div className="flex flex-col gap-2">
                 <label className="text-sm font-medium text-text/80">API Key</label>
                 <input
@@ -99,11 +81,10 @@ const SettingsModal = React.memo(function SettingsModal({
                   </optgroup>
                   <optgroup label="MiniMax">
                     <option value="MiniMax-M2.5">MiniMax-M2.5 (Deep Thinking)</option>
-                  </optgroup>
-                </select>
+              </optgroup>
+            </select>
               </div>
             </motion.div>
-          )}
         </div>
         
         <div className="px-6 py-4 border-t border-white/10 bg-white/5 flex items-center justify-between">

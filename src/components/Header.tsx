@@ -1,18 +1,14 @@
 import React from 'react';
-import { Code2, Settings, Play, Loader2, ImageIcon, Download, HelpCircle } from 'lucide-react';
+import { Code2, Settings, Play, Download, HelpCircle } from 'lucide-react';
 import { exportWorkspaceAsZip } from '../utils/export';
 
 interface HeaderProps {
-  isGeneratingTheme: boolean;
-  onGenerateBackground: () => void;
   onOpenSettings: () => void;
   onOpenShortcuts: () => void;
   onRunCode: () => void;
 }
 
 const Header = React.memo(function Header({
-  isGeneratingTheme,
-  onGenerateBackground,
   onOpenSettings,
   onOpenShortcuts,
   onRunCode,
@@ -33,15 +29,6 @@ const Header = React.memo(function Header({
       </div>
       
       <div className="flex items-center gap-3">
-        <button 
-          onClick={onGenerateBackground}
-          disabled={isGeneratingTheme}
-          className="glass-button flex items-center gap-2 px-4 py-2 text-sm font-medium text-cta rounded-full disabled:opacity-50 cursor-pointer transition-all"
-        >
-          {isGeneratingTheme ? <Loader2 size={16} className="animate-spin" /> : <ImageIcon size={16} />}
-          <span>{isGeneratingTheme ? 'Generating Theme...' : 'Generate AI Theme'}</span>
-        </button>
-
         <button 
           onClick={onOpenSettings}
           className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white/5 text-text/70 hover:bg-white/10 hover:text-text rounded-full transition-all border border-white/10 cursor-pointer"

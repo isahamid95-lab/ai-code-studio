@@ -61,7 +61,6 @@ cp .env.example .env.local
 # Edit .env.local and add your API keys:
 VITE_ALIBABA_API_KEY=your_alibaba_key_here
 VITE_ALIBABA_BASE_URL=https://coding-intl.dashscope.aliyuncs.com/v1
-GEMINI_API_KEY=your_gemini_key_here  # Optional
 
 # 5. Start development server
 npm run dev
@@ -207,16 +206,12 @@ VITE_ALIBABA_API_KEY=sk-...        # Alibaba DashScope key
 VITE_ALIBABA_BASE_URL=https://...   # API endpoint
 
 # Optional
-GEMINI_API_KEY=...                  # Google Gemini key
 NODE_ENV=development|production
 ```
 
 ### AI Model Selection
 
-In Settings modal, choose:
-- **Qwen3 Coder Plus** - Best for coding (default)
-- **Qwen3 Coder** - Faster, slightly less accurate
-- **Gemini 2.5 Pro** - Alternative option
+In Settings modal, choose from Qwen, Zhipu, Kimi, and MiniMax models.
 
 ---
 

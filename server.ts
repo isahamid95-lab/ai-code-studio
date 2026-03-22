@@ -8,7 +8,11 @@ import archiver from "archiver";
 
 import fsSync from 'fs';
 import dotenv from 'dotenv';
-dotenv.config({ path: '.env.local' });
+// Load standard .env first, then override with .env.local if present
+dotenv.config();
+if (fsSync.existsSync('.env.local')) {
+  dotenv.config({ path: '.env.local', override: true });
+}
 
 const WORKSPACE_DIR = path.join(process.cwd(), "project-workspace");
 if (!fsSync.existsSync(WORKSPACE_DIR)) {
@@ -1017,10 +1021,21 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), "dist");
+    const distPath = path.resolve(process.cwd(), "dist");
+    
+    // Check if dist folder exists to prevent silent white page
+    if (!fsSync.existsSync(distPath)) {
+      console.error(`❌ ERROR: 'dist' directory not found at ${distPath}. Build might have failed or not run.`);
+    }
+
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+      const indexPath = path.join(distPath, "index.html");
+      if (fsSync.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+      } else {
+        res.status(404).send("<h1>404: Build not found</h1><p>The 'dist/index.html' file is missing. Please check your build logs on Render.</p>");
+      }
     });
   }
 

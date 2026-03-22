@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
-import { GoogleGenAI } from '@google/genai';
 import CodeMirror from '@uiw/react-codemirror';
 import { javascript } from '@codemirror/lang-javascript';
 import { css } from '@codemirror/lang-css';
@@ -12,7 +11,7 @@ import {
   X, Lightbulb, Bug, Sparkles, Globe, Trash2, Search, Settings as SettingsIcon, Github
 } from 'lucide-react';
 
-import type { Language, AiProvider } from './types';
+import type { Language } from './types';
 import { FILE_TEMPLATES } from './constants';
 import { useFiles } from './hooks/useFiles';
 import { useGit } from './hooks/useGit';
@@ -37,9 +36,6 @@ import { SymbolOutline } from './components/SymbolOutline';
 import { AIIntelPanel } from './components/AIIntelPanel';
 import { Zap } from 'lucide-react';
 
-// Initialize Gemini API
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
 // --- Language Extension Helper ---
 const getLanguageExtension = (lang: Language) => {
   switch (lang) {
@@ -62,16 +58,13 @@ export default function App() {
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isThemeSelectorOpen, setIsThemeSelectorOpen] = useState(false);
   const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
-  const [aiProvider, setAiProvider] = useState<AiProvider>('alibaba');
   const [alibabaApiKey, setAlibabaApiKey] = useState(import.meta.env.VITE_ALIBABA_API_KEY || '');
   const [alibabaModel, setAlibabaModel] = useState('qwen3-coder-plus');
 
   // --- Preview State ---
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
-  // --- Theme Generation State ---
   const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
-  const [isGeneratingTheme, setIsGeneratingTheme] = useState(false);
   const [isScaffolding, setIsScaffolding] = useState(false);
   const [tabContextMenu, setTabContextMenu] = useState<{ x: number, y: number, id: string } | null>(null);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
@@ -104,7 +97,6 @@ export default function App() {
     fileHook.setOpenTabs,
     fileHook.setActiveTabId,
     fileHook.saveFileToBackend,
-    aiProvider,
     alibabaApiKey,
     alibabaModel,
     fileHook.selectedCode,
@@ -179,46 +171,9 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [fileHook]);
 
-  // --- Theme Generation ---
-  const generateBackground = useCallback(async () => {
-    setIsGeneratingTheme(true);
-    try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
-        contents: {
-          parts: [
-            {
-              text: 'A breathtaking, dark, futuristic abstract background for a premium coding environment. Deep obsidian blacks, subtle glowing neon cyan and amethyst neural network lines, cinematic lighting, sleek, modern, glassmorphism aesthetic, no text, highly detailed.',
-            }
-          ]
-        },
-        config: {
-          imageConfig: {
-            aspectRatio: "16:9"
-          }
-        }
-      });
-      
-      const part = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
-      if (part?.inlineData) {
-        const imageUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-        setBackgroundUrl(imageUrl);
-        localStorage.setItem('ide_bg', imageUrl);
-      }
-    } catch (e) {
-      console.error("Failed to generate background", e);
-    } finally {
-      setIsGeneratingTheme(false);
-    }
-  }, []);
-
   useEffect(() => {
     const savedBg = localStorage.getItem('ide_bg');
-    if (savedBg) {
-      setBackgroundUrl(savedBg);
-    } else {
-      generateBackground();
-    }
+    if (savedBg) setBackgroundUrl(savedBg);
   }, []);
 
   // Handle send — routes to agent or chat based on mode
@@ -252,8 +207,6 @@ export default function App() {
         {/* Top Navigation */}
         <Suspense fallback={<div className="h-14 glass-panel rounded-2xl animate-pulse" />}>
           <Header
-            isGeneratingTheme={isGeneratingTheme}
-            onGenerateBackground={generateBackground}
             onOpenSettings={() => setIsSettingsOpen(true)}
             onOpenShortcuts={() => setIsShortcutsOpen(true)}
             onRunCode={fileHook.runCode}
@@ -624,7 +577,6 @@ export default function App() {
                 agentStatus={agentHook.agentStatus}
                 activeFile={fileHook.activeFile}
                 selectedCode={fileHook.selectedCode}
-                aiProvider={aiProvider}
                 alibabaModel={alibabaModel}
                 isTerminalOpen={fileHook.isTerminalOpen}
                 chatEndRef={chatHook.chatEndRef}
@@ -688,10 +640,8 @@ export default function App() {
         <AnimatePresence>
           {isSettingsOpen && (
             <SettingsModal
-              aiProvider={aiProvider}
               alibabaApiKey={alibabaApiKey}
               alibabaModel={alibabaModel}
-              onSetAiProvider={setAiProvider}
               onSetAlibabaApiKey={setAlibabaApiKey}
               onSetAlibabaModel={setAlibabaModel}
               onClose={() => setIsSettingsOpen(false)}

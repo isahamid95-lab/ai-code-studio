@@ -172,7 +172,6 @@ Required in `.env.local`:
 ```
 VITE_ALIBABA_API_KEY=sk-...
 VITE_ALIBABA_BASE_URL=https://coding-intl.dashscope.aliyuncs.com/v1
-GEMINI_API_KEY=...  # Optional
 ```
 
 ## Important Notes

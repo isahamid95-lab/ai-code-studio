@@ -1,10 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { GoogleGenAI } from '@google/genai';
-import type { ChatMessage, FileItem, AiProvider } from '../types';
+import type { ChatMessage, FileItem } from '../types';
 import { detectLanguage } from '../constants';
 import { sendChatMessage } from '../services/api';
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export function useChat(
   activeFile: FileItem | undefined,
@@ -13,7 +10,6 @@ export function useChat(
   setOpenTabs: React.Dispatch<React.SetStateAction<string[]>>,
   setActiveTabId: React.Dispatch<React.SetStateAction<string>>,
   saveFileToBackend: (id: string, content: string) => Promise<void>,
-  aiProvider: AiProvider,
   alibabaApiKey: string,
   alibabaModel: string,
   selectedCode: string,
@@ -124,12 +120,11 @@ export function useChat(
       }
       context += `\nProvide clear, concise answers. Use markdown for code blocks.`;
 
-      if (aiProvider === 'alibaba') {
-        if (!alibabaApiKey) {
-          throw new Error("Alibaba Cloud API Key is required. Please configure it in Settings.");
-        }
-        
-        const response = await sendChatMessage(alibabaModel || 'qwen3-coder-plus', [
+      if (!alibabaApiKey) {
+        throw new Error("Alibaba Cloud API Key is required. Please configure it in Settings.");
+      }
+
+      const response = await sendChatMessage(alibabaModel || 'qwen3-coder-plus', [
           { role: 'system', content: context },
           { role: 'user', content: text }
         ]);
@@ -172,23 +167,7 @@ export function useChat(
             }
           }
         }
-        await applyFilesFromResponse(fullResponse);
-      } else {
-        let fullResponse = '';
-        const stream = await ai.models.generateContentStream({
-          model: 'gemini-2.0-flash',
-          contents: `${context}\n\nUser Request: ${text}`,
-        });
-
-        for await (const chunk of stream) {
-          const t = chunk.text || '';
-          fullResponse += t;
-          setChatMessages(prev => prev.map(msg =>
-            msg.id === modelMsgId ? { ...msg, text: msg.text + t } : msg
-          ));
-        }
-        await applyFilesFromResponse(fullResponse);
-      }
+      await applyFilesFromResponse(fullResponse);
     } catch (error: any) {
       console.error("Error generating content:", error);
       setChatMessages(prev => prev.map(msg => 
@@ -197,7 +176,7 @@ export function useChat(
     } finally {
       setIsGenerating(false);
     }
-  }, [isGenerating, activeFile, aiProvider, alibabaApiKey, alibabaModel, applyFilesFromResponse]);
+  }, [isGenerating, activeFile, alibabaApiKey, alibabaModel, applyFilesFromResponse]);
 
   const handleQuickAction = useCallback((action: 'explain' | 'bugs' | 'refactor') => {
     if (!activeFile) return;
