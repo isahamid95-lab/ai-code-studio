@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Settings, X } from 'lucide-react';
+import { Settings, X, Trash2 } from 'lucide-react';
 import type { AiProvider } from '../types';
 
 interface SettingsModalProps {
@@ -35,25 +35,25 @@ const SettingsModal = React.memo(function SettingsModal({
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
         onClick={(e) => e.stopPropagation()}
-        className="bg-[#111] border border-white/10 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+        className="bg-background border border-white/10 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-white/5">
-          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-            <Settings size={18} className="text-cyan-400" />
+          <h2 className="text-lg font-semibold text-text flex items-center gap-2">
+            <Settings size={18} className="text-primary" />
             Settings
           </h2>
-          <button onClick={onClose} className="text-white/40 hover:text-white transition-colors">
+          <button onClick={onClose} className="text-text/40 hover:text-text transition-colors cursor-pointer">
             <X size={18} />
           </button>
         </div>
         
         <div className="p-6 flex flex-col gap-6">
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-white/80">AI Provider</label>
+            <label className="text-sm font-medium text-text/80">AI Provider</label>
             <select
               value={aiProvider}
               onChange={(e) => onSetAiProvider(e.target.value as AiProvider)}
-              className="w-full bg-black/40 text-sm text-white px-3 py-2.5 border border-white/10 rounded-lg outline-none focus:border-cyan-500/50 transition-colors"
+              className="w-full bg-secondary/40 text-sm text-text px-3 py-2.5 border border-white/10 rounded-lg outline-none focus:border-primary/50 transition-colors"
             >
               <option value="gemini">Google Gemini (Default)</option>
               <option value="alibaba">Alibaba Cloud Coding Plan</option>
@@ -66,23 +66,23 @@ const SettingsModal = React.memo(function SettingsModal({
               animate={{ height: 'auto', opacity: 1 }}
               className="flex flex-col gap-4 overflow-hidden"
             >
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium text-white/80">API Key</label>
+               <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium text-text/80">API Key</label>
                 <input
                   type="password"
                   value={alibabaApiKey}
                   onChange={(e) => onSetAlibabaApiKey(e.target.value)}
                   placeholder="sk-..."
-                  className="w-full bg-black/40 text-sm text-white px-3 py-2.5 border border-white/10 rounded-lg outline-none focus:border-cyan-500/50 transition-colors"
+                  className="w-full bg-secondary/40 text-sm text-text px-3 py-2.5 border border-white/10 rounded-lg outline-none focus:border-primary/50 transition-colors"
                 />
-                <p className="text-xs text-white/40">Your key is stored locally in your browser session.</p>
+                <p className="text-xs text-text/40">Your key is stored locally in your browser session.</p>
               </div>
               <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium text-white/80">Model</label>
+                <label className="text-sm font-medium text-text/80">Model</label>
                 <select
                   value={alibabaModel}
                   onChange={(e) => onSetAlibabaModel(e.target.value)}
-                  className="w-full bg-black/40 text-sm text-white px-3 py-2.5 border border-white/10 rounded-lg outline-none focus:border-cyan-500/50 transition-colors"
+                  className="w-full bg-secondary/40 text-sm text-text px-3 py-2.5 border border-white/10 rounded-lg outline-none focus:border-primary/50 transition-colors"
                 >
                   <optgroup label="Qwen">
                     <option value="qwen3-coder-plus">qwen3-coder-plus (Önerilen)</option>
@@ -106,10 +106,24 @@ const SettingsModal = React.memo(function SettingsModal({
           )}
         </div>
         
-        <div className="px-6 py-4 border-t border-white/10 bg-white/5 flex justify-end">
+        <div className="px-6 py-4 border-t border-white/10 bg-white/5 flex items-center justify-between">
+          <button 
+            onClick={() => {
+              if (confirm('Are you sure you want to clear all data? This cannot be undone.')) {
+                 localStorage.clear();
+                 indexedDB.deleteDatabase('ai-code-studio');
+                 window.location.reload();
+              }
+            }}
+            className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-red-400 hover:text-red-300 transition-colors uppercase tracking-wider cursor-pointer"
+          >
+            <Trash2 size={14} />
+            Reset Studio
+          </button>
+          
           <button
             onClick={onClose}
-            className="px-5 py-2 text-sm font-medium bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 rounded-full transition-all border border-cyan-500/30"
+            className="px-5 py-2 text-sm font-medium bg-primary/20 text-white hover:bg-primary/30 rounded-full transition-all border border-primary/30 cursor-pointer"
           >
             Done
           </button>

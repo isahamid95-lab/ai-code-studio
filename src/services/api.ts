@@ -1,27 +1,67 @@
 import type { FileItem } from '../types';
+import { getWebContainer } from '../lib/webcontainer';
+
+// Helper to detect language
+function getLanguage(filename: string): any {
+  const ext = filename.split('.').pop();
+  const map: Record<string, string> = {
+    js: 'javascript', ts: 'typescript', jsx: 'javascript', tsx: 'typescript',
+    html: 'html', css: 'css', json: 'json', md: 'markdown'
+  };
+  return map[ext || ''] || 'plaintext';
+}
 
 // --- File System API ---
 export async function fetchFilesFromServer(): Promise<FileItem[] | null> {
-  const res = await fetch('/api/files');
-  if (!res.ok) return null;
-  const data = await res.json();
-  return data.files && data.files.length > 0 ? data.files : null;
+  const wc = await getWebContainer();
+  const files: FileItem[] = [];
+  
+  async function readDir(dir: string, relativePath: string = '') {
+    const entries = await wc.fs.readdir(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.name === '.git' || entry.name === 'node_modules') continue;
+      
+      const fullPath = dir === '/' ? `/${entry.name}` : `${dir}/${entry.name}`;
+      const relPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
+      
+      if (entry.isDirectory()) {
+        await readDir(fullPath, relPath);
+      } else {
+        const contentBytes = await wc.fs.readFile(fullPath);
+        const content = new TextDecoder().decode(contentBytes);
+        files.push({
+          id: relPath,
+          name: entry.name,
+          content,
+          language: getLanguage(entry.name),
+        });
+      }
+    }
+  }
+  
+  try {
+    await readDir('/');
+    return files.length > 0 ? files : null;
+  } catch(e) {
+    return null;
+  }
 }
 
 export async function saveFileToServer(id: string, content: string): Promise<void> {
-  await fetch('/api/files', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id, content })
-  });
+  const wc = await getWebContainer();
+  // Ensure directories exist
+  const parts = id.split('/');
+  let currentPath = '';
+  for (let i = 0; i < parts.length - 1; i++) {
+    currentPath += '/' + parts[i];
+    try { await wc.fs.mkdir(currentPath); } catch (e) { /* ignore if exists */ }
+  }
+  await wc.fs.writeFile('/' + id, content);
 }
 
 export async function deleteFileFromServer(id: string): Promise<void> {
-  await fetch('/api/files', {
-    method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id })
-  });
+  const wc = await getWebContainer();
+  await wc.fs.rm('/' + id);
 }
 
 // --- Run Code API ---
@@ -87,11 +127,11 @@ export async function gitPull(): Promise<{ error?: string }> {
 }
 
 // --- AI Chat API ---
-export function sendChatMessage(model: string, messages: any[]): Promise<Response> {
+export function sendChatMessage(model: string, messages: any[], rest: any = {}): Promise<Response> {
   return fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, messages, stream: true })
+    body: JSON.stringify({ model, messages, ...rest })
   });
 }
 

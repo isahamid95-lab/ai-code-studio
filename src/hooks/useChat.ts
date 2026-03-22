@@ -28,6 +28,8 @@ export function useChat(
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    (window as any)._chatMessages = chatMessages;
+    (window as any)._setChatMessages = setChatMessages;
   }, [chatMessages]);
 
   const applyFilesFromResponse = useCallback(async (responseText: string) => {
@@ -100,7 +102,21 @@ export function useChat(
       context += '```language:filename.ext\n// code here\n```\n';
       context += `For example: \`\`\`typescript:App.tsx or \`\`\`javascript:index.js\n`;
       context += `This allows the IDE to automatically create/update files. Always use this format for every code file you produce.\n`;
-      if (activeFile) {
+      
+      // Detect mentioned files
+      const mentions = text.match(/@([\w.\-/]+\.\w+)/g);
+      if (mentions) {
+        context += '\nThe user has explicitly mentioned the following files for context:\n';
+        mentions.forEach(m => {
+          const filename = m.slice(1);
+          const file = files.find(f => f.name === filename);
+          if (file) {
+            context += `\n--- File: ${filename} ---\n\`\`\`${file.language}\n${file.content}\n\`\`\`\n`;
+          }
+        });
+      }
+
+      if (activeFile && !mentions?.some(m => m.slice(1) === activeFile.name)) {
         context += `\nThe user is currently viewing/editing a file named "${activeFile.name}".\n`;
         context += `Here is the current content of the file:\n\`\`\`${activeFile.language}\n${activeFile.content}\n\`\`\`\n`;
       }

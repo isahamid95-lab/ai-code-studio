@@ -1,12 +1,14 @@
 import { useState, useCallback } from 'react';
 import type { ChatMessage } from '../types';
-import { sendAgentRequest } from '../services/api';
+import { sendChatMessage } from '../services/api';
+import { getWebContainer } from '../lib/webcontainer';
 
 export function useAgent(
   alibabaModel: string,
   applyFileFromAgent: (filename: string, content: string) => void,
   setChatMessages: (fn: React.SetStateAction<ChatMessage[]>) => void,
   setIsGenerating: (val: boolean) => void,
+  files: any[],
   onComplete?: () => void,
 ) {
   const [agentMode, setAgentMode] = useState(false);
@@ -21,54 +23,35 @@ export function useAgent(
     setIsGenerating(true);
     setAgentStatus(mode === 'plan' ? '📋 Plan oluşturuluyor...' : '🤖 Agent çalışıyor...');
 
-    const systemPrompt = `You are an expert full-stack AI coding agent working inside "AI Code Studio Pro", a professional web IDE. You build REAL, PRODUCTION-QUALITY applications — not toy demos.
+    const fileList = files.map(f => f.id).join('\n');
+    const activeFile = (window as any)._activeFileId || 'None';
+    
+    const systemPrompt = `You are an elite, senior-tier AI software architect and developer.
+You act with the intelligence and autonomous capability of Bolt or Lovable.
 
-## CRITICAL RULES — MULTI-FILE ARCHITECTURE
+ENVIRONMENT:
+- Runtime: WebContainer (Pure Node.js browser OS)
+- CLI access: Interactive 'jsh' shells
+- Target workspace: Empty but persistent
 
-1. **NEVER put everything in a single HTML file.** Always create SEPARATE files:
-   - \`index.html\` — Clean HTML structure with <link> and <script> references
-   - \`style.css\` — All styles, design tokens, animations, responsive design
-   - \`script.js\` (or \`app.js\`) — All JavaScript logic, event handling, API calls
-   - Additional files as needed (e.g., \`utils.js\`, \`api.js\`, \`components/\`)
+PROJECT STATE:
+Active File: ${activeFile}
+All Workspace Files:
+${fileList || '(empty)'}
 
-2. **Professional code quality:**
-   - Use modern ES6+ syntax (const/let, arrow functions, template literals, async/await)
-   - Add meaningful comments and documentation
-   - Handle errors properly with try/catch
-   - Use semantic HTML5 elements
-   - Implement responsive design with CSS Grid/Flexbox
-   - Add smooth animations and transitions
+AGENT PROTOCOL:
+1. **Analyze First**: Use 'read_file' to understand dependencies or existing logic before editing.
+2. **Execute via CLI**: Use 'run_command' for bulk tasks (installing packages, running tests, scaffolding).
+3. **Atomic Writes**: Use 'create_file' to implement or patch files with clean, production-ready code.
+4. **Self-Correct**: If a command fails or a file isn't found, use 'run_command ("ls -R")' to re-verify state.
+5. **Auto-Context**: If the user mentions a file with '@' (e.g. "@App.tsx"), immediately use 'read_file' to understand its content.
 
-3. **Real-world features — not placeholders:**
-   - Working form validation
-   - Real data handling (localStorage, API calls where relevant)
-   - Proper loading/error states
-   - Keyboard accessibility
-   - Mobile-friendly design
+COMMUNICATION:
+- Keep explanations ultra-short. 
+- Focus on the technical implementation.
+- Be precise, fast, and architectural.`;
 
-4. **Premium visual design:**
-   - Modern color palettes (no plain red/blue/green)
-   - Smooth gradients, subtle shadows
-   - Micro-animations (hover, focus, transitions)
-   - Professional typography (use Google Fonts when applicable)
-   - Dark mode support when appropriate
-
-5. **File organization:**
-   - Keep files focused and single-responsibility
-   - Use descriptive filenames
-   - For larger projects, use folders (e.g., \`css/\`, \`js/\`, \`components/\`)
-
-## TOOLS
-Use the \`create_file\` tool to create each file separately. Always create ALL necessary files — HTML, CSS, JS, config, etc. The workspace serves files via /preview/index.html so the user can see results immediately.
-
-## EXAMPLE STRUCTURE for a Todo App:
-- create_file("index.html", "<!DOCTYPE html>...with <link href='style.css'> and <script src='app.js'>")
-- create_file("style.css", "/* Modern CSS with variables, grid, animations */")  
-- create_file("app.js", "// Complete application logic with classes/modules")
-
-IMPORTANT: Start creating files immediately using tools. Do NOT just explain — EXECUTE by calling create_file for every file.`;
-
-    const messages = [
+    const conversationMessages: any[] = [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: text }
     ];
@@ -76,62 +59,150 @@ IMPORTANT: Start creating files immediately using tools. Do NOT just explain —
     const modelMsgId = (Date.now() + 1).toString();
     setChatMessages(prev => [...prev, { id: modelMsgId, role: 'model', text: '' }]);
 
-    try {
-      const response = await sendAgentRequest(alibabaModel || 'qwen3-coder-plus', messages, mode);
-      const reader = response.body!.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      const createdFiles: string[] = [];
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          try {
-            const event = JSON.parse(line.slice(6));
-
-            if (event.type === 'plan') {
-              setChatMessages(prev => prev.map(m =>
-                m.id === modelMsgId ? { ...m, text: `## 📋 Plan\n${event.content}\n\n---\n` } : m
-              ));
-            } else if (event.type === 'text') {
-              setChatMessages(prev => prev.map(m =>
-                m.id === modelMsgId ? { ...m, text: m.text + event.content } : m
-              ));
-            } else if (event.type === 'file_created') {
-              applyFileFromAgent(event.filename, event.content);
-              createdFiles.push(event.filename);
-              setAgentStatus(`✅ Oluşturuldu: ${event.filename}`);
-              setChatMessages(prev => prev.map(m =>
-                m.id === modelMsgId ? { ...m, text: m.text + `\n\n✅ **${event.filename}** oluşturuldu` } : m
-              ));
-            } else if (event.type === 'done') {
-              if (createdFiles.length > 0) {
-                setAgentStatus(`✅ Tamamlandı — ${createdFiles.length} dosya oluşturuldu`);
-              } else {
-                setAgentStatus('');
-              }
-            } else if (event.type === 'error') {
-              setChatMessages(prev => prev.map(m =>
-                m.id === modelMsgId ? { ...m, text: m.text + `\n\n❌ Hata: ${event.content}` } : m
-              ));
-            }
-          } catch (e) { /* ignore parse errors */ }
+    const tools = [
+      {
+        type: 'function',
+        function: {
+          name: 'create_file',
+          description: 'Create a new file with the specified content',
+          parameters: {
+            type: 'object',
+            properties: {
+              filename: { type: 'string' },
+              content: { type: 'string' }
+            },
+            required: ['filename', 'content']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'run_command',
+          description: 'Execute a shell command. Use this for: npm install, npm run dev, mkdir, etc. Ensure non-interactive flags (-y).',
+          parameters: {
+            type: 'object',
+            properties: {
+              command: { type: 'string' }
+            },
+            required: ['command']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'read_file',
+          description: 'Read the content of an existing file',
+          parameters: {
+            type: 'object',
+            properties: {
+              filename: { type: 'string' }
+            },
+            required: ['filename']
+          }
         }
       }
+    ];
+
+    try {
+      const wc = await getWebContainer();
+      const MAX_ITERATIONS = 25;
+      const createdFiles: string[] = [];
+
+      for (let i = 0; i < MAX_ITERATIONS; i++) {
+        const response = await sendChatMessage(alibabaModel || 'qwen3-coder-plus', conversationMessages, {
+          tools,
+          tool_choice: 'auto',
+          stream: false
+        });
+
+        if (!response.ok) {
+          const err = await response.text();
+          setChatMessages(prev => prev.map(m => m.id === modelMsgId ? { ...m, text: m.text + `\n❌ Hata: ${err}` } : m));
+          break;
+        }
+
+        const data = await response.json();
+        const message = data.choices?.[0]?.message;
+        if (!message) break;
+
+        if (message.content) {
+          setChatMessages(prev => prev.map(m => m.id === modelMsgId ? { ...m, text: m.text + message.content + '\n' } : m));
+        }
+
+        if (!message.tool_calls || message.tool_calls.length === 0) break;
+        
+        conversationMessages.push(message);
+
+        for (const toolCall of message.tool_calls) {
+          let toolResult = '';
+          try {
+            const args = JSON.parse(toolCall.function.arguments);
+            if (toolCall.function.name === 'create_file') {
+              setAgentStatus(`Masaüstüne yazılıyor: ${args.filename}`);
+              
+              const parts = args.filename.split('/');
+              let currentPath = '';
+              for (let p = 0; p < parts.length - 1; p++) {
+                // Ignore empty parts (e.g. leading slash)
+                if(!parts[p]) continue; 
+                currentPath += '/' + parts[p];
+                try { await wc.fs.mkdir(currentPath); } catch (e) { /* ignore if exists */ }
+              }
+
+              await wc.fs.writeFile('/' + args.filename.replace(/^\/+/, ''), args.content);
+              createdFiles.push(args.filename);
+              applyFileFromAgent(args.filename, args.content);
+              toolResult = `Created ${args.filename} successfully.`;
+              
+              setChatMessages(prev => prev.map(m => m.id === modelMsgId ? { ...m, text: m.text + `\n✅ **${args.filename}** oluşturuldu.\n` } : m));
+              
+            } else if (toolCall.function.name === 'run_command') {
+              setAgentStatus(`Komut çalıştırılıyor: ${args.command}`);
+              const process = await wc.spawn('jsh', ['-c', args.command]);
+              
+              const outputReader = process.output.getReader();
+              let outputStr = '';
+              
+              // Read output until process exits
+              process.output.pipeTo(new WritableStream({
+                write(data) {
+                  outputStr += data;
+                }
+              }));
+              
+              const exitCode = await process.exit;
+              toolResult = exitCode === 0 ? `Command succeeded. Output: ${outputStr}` : `Command failed with code ${exitCode}. Output: ${outputStr}`;
+              
+              setChatMessages(prev => prev.map(m => m.id === modelMsgId ? { ...m, text: m.text + `\n⚙️ \`${args.command}\` çalıştırıldı.\n` } : m));
+            } else if (toolCall.function.name === 'read_file') {
+              setAgentStatus(`Okunuyor: ${args.filename}`);
+              try {
+                const content = await wc.fs.readFile(args.filename, 'utf-8');
+                toolResult = content;
+              } catch (err: any) {
+                toolResult = `Error reading file: ${err.message}`;
+              }
+            }
+          } catch (e: any) {
+            toolResult = `Error executing tool: ${e.message}`;
+          }
+          
+          conversationMessages.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            content: toolResult
+          });
+        }
+      }
+
+      setAgentStatus(`✅ Tamamlandı — ${createdFiles.length > 0 ? createdFiles.length + ' dosya oluşturuldu' : ''}`);
+
     } catch (err: any) {
-      setChatMessages(prev => prev.map(m =>
-        m.id === modelMsgId ? { ...m, text: `❌ Hata: ${err.message}` } : m
-      ));
+      setChatMessages(prev => prev.map(m => m.id === modelMsgId ? { ...m, text: m.text + `\n❌ Hata: ${err.message}` } : m));
     } finally {
       setIsGenerating(false);
-      // Sync file list from server to ensure Explorer is accurate
       onComplete?.();
       setTimeout(() => setAgentStatus(''), 4000);
     }

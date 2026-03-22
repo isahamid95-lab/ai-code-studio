@@ -4,6 +4,7 @@ import fs from "fs/promises";
 import path from "path";
 import simpleGit from "simple-git";
 import { spawn } from "child_process";
+import archiver from "archiver";
 
 import fsSync from 'fs';
 import dotenv from 'dotenv';
@@ -307,9 +308,11 @@ async function startServer() {
   // --- AI Chat Proxy ---
   app.post("/api/chat", async (req, res) => {
     try {
-      const { messages, model, stream } = req.body;
+      const { messages, model, stream, ...rest } = req.body;
       const apiKey = process.env.VITE_ALIBABA_API_KEY;
       const baseUrl = process.env.VITE_ALIBABA_BASE_URL || 'https://coding-intl.dashscope.aliyuncs.com/v1';
+
+      const isStreaming = stream !== false;
 
       const response = await fetch(`${baseUrl}/chat/completions`, {
         method: 'POST',
@@ -317,7 +320,7 @@ async function startServer() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}`
         },
-        body: JSON.stringify({ model, messages, stream: true })
+        body: JSON.stringify({ model, messages, stream: isStreaming, ...rest })
       });
 
       if (!response.ok) {
@@ -408,7 +411,11 @@ async function startServer() {
     ];
 
     try {
-      let conversationMessages: any[] = [...messages];
+      const systemPrompt = {
+        role: 'system',
+        content: 'You are an elite enterprise-grade AI cloud development environment, capable of coding any application perfectly akin to Lovable or Bolt. Rather than creating file-by-file primitives, strongly prioritize leveraging CLIs to bootstrap multi-file projects (e.g., npx create-vite, npx create-next-app, npm init -y) to ensure solid functionality. Ensure all terminal commands run with non-interactive flags.'
+      };
+      let conversationMessages: any[] = [systemPrompt, ...messages];
 
       // Plan mode: generate plan first
       if (mode === 'plan') {
@@ -480,19 +487,20 @@ async function startServer() {
                 result = `Created ${args.filename} (${args.content.length} bytes)`;
               }
             } else if (toolCall.function.name === 'run_command') {
-              // Execute shell command and capture output
+              // Execute shell command asynchronously and capture output
               send({ type: 'command_start', command: args.command });
               try {
-                const { execSync } = require('child_process');
-                const output = execSync(args.command, {
+                const { exec } = await import('child_process');
+                const util = await import('util');
+                const execPromise = util.promisify(exec);
+                const { stdout, stderr } = await execPromise(args.command, {
                   cwd: WORKSPACE_DIR,
                   timeout: 60000, // 60s timeout
-                  encoding: 'utf-8',
-                  env: { ...process.env, FORCE_COLOR: '0', HOME: process.env.HOME || '/root' },
-                  stdio: ['pipe', 'pipe', 'pipe']
+                  env: { ...process.env, FORCE_COLOR: '0', HOME: process.env.HOME || '/root', CI: 'true', NONINTERACTIVE: '1' }
                 });
-                send({ type: 'command_output', command: args.command, output: output || '(no output)' });
-                result = output || '(command completed with no output)';
+                const output = stdout || stderr || '(no output)';
+                send({ type: 'command_output', command: args.command, output });
+                result = output;
               } catch (cmdErr: any) {
                 const errOutput = cmdErr.stderr || cmdErr.stdout || cmdErr.message;
                 send({ type: 'command_output', command: args.command, output: errOutput, error: true });
@@ -582,6 +590,38 @@ async function startServer() {
       res.json({ success: true });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
+    }
+  });
+
+  // --- Export API ---
+  app.get("/api/export", async (req, res) => {
+    try {
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Disposition', 'attachment; filename="project-export.zip"');
+
+      const archive = archiver('zip', {
+        zlib: { level: 9 } // Sets the compression level.
+      });
+
+      archive.on('error', function(err) {
+        throw err;
+      });
+
+      // pipe archive data to the client
+      archive.pipe(res);
+
+      // append files from a sub-directory, putting its contents at the root of archive
+      // Ignore huge folders like node_modules or .git ideally, but for now we ignore via glob
+      archive.glob('**/*', {
+        cwd: WORKSPACE_DIR,
+        ignore: ['node_modules/**', '.git/**']
+      });
+
+      await archive.finalize();
+    } catch (err: any) {
+      if (!res.headersSent) {
+        res.status(500).json({ error: err.message });
+      }
     }
   });
 

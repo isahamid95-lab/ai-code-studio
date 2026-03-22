@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { FileItem, LogEntry } from '../types';
 import { initialFiles, detectLanguage } from '../constants';
 import { fetchFilesFromServer, saveFileToServer, deleteFileFromServer, runFileOnServer } from '../services/api';
+import { saveProject, loadProject, clearProject } from '../utils/persistence';
+import { getWebContainer } from '../lib/webcontainer';
 
 // Debounce helper
 function useDebouncedCallback<T extends (...args: any[]) => void>(callback: T, delay: number): T {
@@ -16,6 +18,7 @@ export function useFiles() {
   const [files, setFiles] = useState<FileItem[]>([]);
   const [openTabs, setOpenTabs] = useState<string[]>([]);
   const [activeTabId, setActiveTabId] = useState<string>('');
+  const [dirtyFileIds, setDirtyFileIds] = useState<Set<string>>(new Set());
 
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
   const [terminalOutput, setTerminalOutput] = useState<LogEntry[]>([
@@ -33,6 +36,11 @@ export function useFiles() {
   const debouncedSave = useDebouncedCallback(async (id: string, content: string) => {
     try {
       await saveFileToServer(id, content);
+      setDirtyFileIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     } catch (e) {
       console.error("Failed to save file", e);
     }
@@ -50,9 +58,30 @@ export function useFiles() {
     try {
       const serverFiles = await fetchFilesFromServer();
       if (serverFiles && serverFiles.length > 0) {
-        setFiles(serverFiles);
-      } else {
-        // Workspace is empty — start clean
+        setFiles(prevFiles => {
+          // Optimization: Check if anything actually changed besides the current active file's content
+          // This prevents global re-renders of the explorer and tabs if only the server fs is being polled
+          const isSame = prevFiles.length === serverFiles.length && 
+            prevFiles.every((f, i) => f.id === serverFiles[i].id && f.name === serverFiles[i].name);
+          
+          if (isSame) {
+            // Only update content if it's different (and not for the active file being edited)
+            let hasContentChange = false;
+            const updated = prevFiles.map(localFile => {
+              const serverFile = serverFiles.find(sf => sf.id === localFile.id);
+              if (serverFile && serverFile.content !== localFile.content) {
+                if (activeTabId === localFile.id) return localFile; // Skip active file
+                hasContentChange = true;
+                return { ...localFile, content: serverFile.content };
+              }
+              return localFile;
+            });
+            return hasContentChange ? updated : prevFiles;
+          }
+          
+          return serverFiles;
+        });
+      } else if (serverFiles && serverFiles.length === 0) {
         setFiles([]);
         setOpenTabs([]);
         setActiveTabId('');
@@ -60,14 +89,46 @@ export function useFiles() {
     } catch (e) {
       console.error("Failed to fetch files", e);
     }
-  }, []);
+  }, [activeTabId]);
 
   useEffect(() => {
     fetchFiles();
+    // Throttle File Sync from WebContainer (10s instead of 3s for performance)
+    const intervalId = setInterval(fetchFiles, 10000);
+    return () => clearInterval(intervalId);
   }, [fetchFiles]);
+
+  // Persistence Auto-Save
+  useEffect(() => {
+    if (files.length > 0) {
+      const chatMessages = (window as any)._chatMessages || [];
+      saveProject(files, activeTabId, chatMessages).catch(console.error);
+    }
+  }, [files, activeTabId]);
+
+  // Initial Restore/Scaffold
+  useEffect(() => {
+    (async () => {
+       const snapshot = await loadProject();
+       if (snapshot && snapshot.files.length > 0 && files.length === 0) {
+          // Sync restored files back to WC filesystem
+          const wc = await getWebContainer();
+          for (const file of snapshot.files) {
+             await wc.fs.writeFile(file.id, file.content);
+          }
+          setFiles(snapshot.files);
+          setActiveTabId(snapshot.activeId);
+          setOpenTabs(snapshot.files.filter(f => f.id === snapshot.activeId).map(f => f.id));
+          if (snapshot.chatMessages && (window as any)._setChatMessages) {
+             (window as any)._setChatMessages(snapshot.chatMessages);
+          }
+       }
+    })();
+  }, []);
 
   const handleFileChange = useCallback((newContent: string) => {
     setFiles(prev => prev.map(f => f.id === activeTabId ? { ...f, content: newContent } : f));
+    setDirtyFileIds(prev => new Set(prev).add(activeTabId));
     debouncedSave(activeTabId, newContent);
   }, [activeTabId, debouncedSave]);
 
@@ -86,6 +147,16 @@ export function useFiles() {
       return newTabs;
     });
   }, [activeTabId]);
+
+  const closeOtherTabs = useCallback((id: string) => {
+    setOpenTabs([id]);
+    setActiveTabId(id);
+  }, []);
+
+  const closeAllTabs = useCallback(() => {
+    setOpenTabs([]);
+    setActiveTabId('');
+  }, []);
 
   const handleCreateFile = useCallback((templates: Record<string, { content: string; defaultExt: string }>) => {
     if (!newFileName.trim()) {
@@ -212,6 +283,7 @@ export function useFiles() {
     files, setFiles,
     openTabs, setOpenTabs,
     activeTabId, setActiveTabId,
+    dirtyFileIds,
     activeFile,
     isTerminalOpen, setIsTerminalOpen,
     terminalOutput, setTerminalOutput,
@@ -222,6 +294,8 @@ export function useFiles() {
     handleFileChange,
     openFile,
     closeTab,
+    closeOtherTabs,
+    closeAllTabs,
     handleCreateFile,
     handleDeleteFile,
     applyFileFromAgent,

@@ -1,10 +1,12 @@
 import React from 'react';
-import { Code2, Settings, Play, Loader2, ImageIcon } from 'lucide-react';
+import { Code2, Settings, Play, Loader2, ImageIcon, Download, HelpCircle } from 'lucide-react';
+import { exportWorkspaceAsZip } from '../utils/export';
 
 interface HeaderProps {
   isGeneratingTheme: boolean;
   onGenerateBackground: () => void;
   onOpenSettings: () => void;
+  onOpenShortcuts: () => void;
   onRunCode: () => void;
 }
 
@@ -12,17 +14,21 @@ const Header = React.memo(function Header({
   isGeneratingTheme,
   onGenerateBackground,
   onOpenSettings,
+  onOpenShortcuts,
   onRunCode,
 }: HeaderProps) {
+  const handleExport = async () => {
+    await exportWorkspaceAsZip();
+  };
   return (
     <header className="glass-panel rounded-2xl h-16 flex items-center justify-between px-6 shrink-0">
       <div className="flex items-center gap-4">
-        <div className="p-2 bg-gradient-to-br from-cyan-500/20 to-purple-500/20 text-cyan-400 rounded-xl border border-cyan-500/20 shadow-[0_0_15px_rgba(0,240,255,0.2)]">
+        <div className="p-2 bg-gradient-to-br from-primary/20 to-cta/20 text-primary rounded-xl border border-primary/20 shadow-[0_0_15px_rgba(59,130,246,0.2)]">
           <Code2 size={24} />
         </div>
         <div>
-          <h1 className="text-lg font-semibold tracking-tight text-white leading-tight">AI Code Studio Pro</h1>
-          <p className="text-xs text-cyan-400/80 leading-tight">Glassmorphism Edition</p>
+          <h1 className="text-lg font-semibold tracking-tight text-text leading-tight">AI Code Studio Pro</h1>
+          <p className="text-xs text-primary/80 leading-tight">Glassmorphism Edition</p>
         </div>
       </div>
       
@@ -30,7 +36,7 @@ const Header = React.memo(function Header({
         <button 
           onClick={onGenerateBackground}
           disabled={isGeneratingTheme}
-          className="glass-button flex items-center gap-2 px-4 py-2 text-sm font-medium text-purple-300 rounded-full disabled:opacity-50"
+          className="glass-button flex items-center gap-2 px-4 py-2 text-sm font-medium text-cta rounded-full disabled:opacity-50 cursor-pointer transition-all"
         >
           {isGeneratingTheme ? <Loader2 size={16} className="animate-spin" /> : <ImageIcon size={16} />}
           <span>{isGeneratingTheme ? 'Generating Theme...' : 'Generate AI Theme'}</span>
@@ -38,17 +44,33 @@ const Header = React.memo(function Header({
 
         <button 
           onClick={onOpenSettings}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white/5 text-white/70 hover:bg-white/10 hover:text-white rounded-full transition-all border border-white/10"
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white/5 text-text/70 hover:bg-white/10 hover:text-text rounded-full transition-all border border-white/10 cursor-pointer"
         >
           <Settings size={14} />
           <span>Settings</span>
+        </button>
+
+        <button 
+          onClick={handleExport}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-cta/20 text-white hover:bg-cta/30 rounded-full transition-all border border-cta/30 shadow-[0_0_15px_rgba(37,99,235,0.1)] cursor-pointer"
+        >
+          <Download size={14} />
+          <span>Export App</span>
+        </button>
+
+        <button 
+          onClick={onOpenShortcuts}
+          className="p-2.5 text-text/40 hover:text-text hover:bg-white/5 rounded-full transition-all cursor-pointer"
+          title="Keyboard Shortcuts"
+        >
+          <HelpCircle size={18} />
         </button>
 
         <div className="w-px h-6 bg-white/10 mx-2"></div>
 
         <button 
           onClick={onRunCode}
-          className="flex items-center gap-2 px-5 py-2 text-sm font-medium bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 rounded-full transition-all border border-cyan-500/30 shadow-[0_0_15px_rgba(0,240,255,0.1)]"
+          className="flex items-center gap-2 px-5 py-2 text-sm font-medium bg-primary/20 text-white hover:bg-primary/30 rounded-full transition-all border border-primary/30 shadow-[0_0_15px_rgba(59,130,246,0.1)] cursor-pointer"
         >
           <Play size={14} className="fill-current" />
           <span>Run Code</span>

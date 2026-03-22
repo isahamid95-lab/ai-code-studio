@@ -1,196 +1,102 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { X, TerminalSquare, Loader2 } from 'lucide-react';
-import { motion } from 'framer-motion';
-import type { LogEntry } from '../types';
+import React, { useState, useCallback } from 'react';
+import { X, TerminalSquare, Plus, Trash2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { TerminalSession } from './TerminalSession';
 
 interface TerminalPanelProps {
-  terminalOutput: LogEntry[];
-  onClear: () => void;
   onClose: () => void;
-  onAddOutput: (entry: LogEntry) => void;
 }
 
-const TerminalPanel = React.memo(function TerminalPanel({
-  terminalOutput,
-  onClear,
-  onClose,
-  onAddOutput,
-}: TerminalPanelProps) {
-  const [commandInput, setCommandInput] = useState('');
-  const [isRunning, setIsRunning] = useState(false);
-  const [commandHistory, setCommandHistory] = useState<string[]>([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+const TerminalPanel = React.memo(function TerminalPanel({ onClose }: TerminalPanelProps) {
+  const [sessions, setSessions] = useState<{ id: string; name: string }[]>([
+    { id: '1', name: 'Terminal 1' }
+  ]);
+  const [activeSessionId, setActiveSessionId] = useState('1');
 
-  // Auto-scroll to bottom on new output
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [terminalOutput]);
+  const addSession = useCallback(() => {
+    const nextId = (Math.max(...sessions.map(s => parseInt(s.id))) + 1).toString();
+    setSessions(prev => [...prev, { id: nextId, name: `Terminal ${nextId}` }]);
+    setActiveSessionId(nextId);
+  }, [sessions]);
 
-  // Focus input when terminal opens
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
-
-  const executeCommand = async (cmd: string) => {
-    if (!cmd.trim() || isRunning) return;
-
-    // Add to history
-    setCommandHistory(prev => [...prev, cmd]);
-    setHistoryIndex(-1);
-    setCommandInput('');
-
-    // Show command in terminal
-    onAddOutput({ type: 'info', text: `$ ${cmd}` });
-    setIsRunning(true);
-
-    try {
-      const response = await fetch('/api/exec', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ command: cmd }),
-      });
-
-      if (!response.ok) {
-        const errData = await response.json();
-        onAddOutput({ type: 'error', text: errData.error || 'Command failed' });
-        setIsRunning(false);
-        return;
+  const removeSession = useCallback((e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (sessions.length === 1) return;
+    setSessions(prev => {
+      const next = prev.filter(s => s.id !== id);
+      if (activeSessionId === id) {
+        setActiveSessionId(next[next.length - 1].id);
       }
-
-      const reader = response.body!.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          try {
-            const event = JSON.parse(line.slice(6));
-            if (event.type === 'log') {
-              onAddOutput({ type: 'log', text: event.text });
-            } else if (event.type === 'error') {
-              onAddOutput({ type: 'error', text: event.text });
-            } else if (event.type === 'exit') {
-              if (event.code !== 0) {
-                onAddOutput({ type: 'error', text: `Process exited with code ${event.code}` });
-              }
-            }
-          } catch { /* ignore parse errors */ }
-        }
-      }
-    } catch (err: any) {
-      onAddOutput({ type: 'error', text: `Error: ${err.message}` });
-    } finally {
-      setIsRunning(false);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      executeCommand(commandInput);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      if (commandHistory.length > 0) {
-        const newIdx = historyIndex === -1 ? commandHistory.length - 1 : Math.max(0, historyIndex - 1);
-        setHistoryIndex(newIdx);
-        setCommandInput(commandHistory[newIdx]);
-      }
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      if (historyIndex >= 0) {
-        const newIdx = historyIndex + 1;
-        if (newIdx >= commandHistory.length) {
-          setHistoryIndex(-1);
-          setCommandInput('');
-        } else {
-          setHistoryIndex(newIdx);
-          setCommandInput(commandHistory[newIdx]);
-        }
-      }
-    } else if (e.key === 'l' && e.ctrlKey) {
-      e.preventDefault();
-      onClear();
-    }
-  };
+      return next;
+    });
+  }, [sessions, activeSessionId]);
 
   return (
     <motion.div 
       initial={{ height: 0, opacity: 0 }}
-      animate={{ height: 280, opacity: 1 }}
+      animate={{ height: 320, opacity: 1 }}
       exit={{ height: 0, opacity: 0 }}
       transition={{ duration: 0.2 }}
-      className="border-t border-white/10 bg-black/60 backdrop-blur-md flex flex-col shrink-0"
+      className="border-t border-white/10 bg-background/80 backdrop-blur-md flex flex-col shrink-0 overflow-hidden"
     >
-      <div className="flex items-center justify-between px-5 py-2 border-b border-white/10 bg-black/30">
-        <div className="flex items-center gap-2 text-xs font-medium text-white/70 uppercase tracking-wider">
-          <TerminalSquare size={14} />
-          Terminal
-          {isRunning && (
-            <span className="flex items-center gap-1.5 text-cyan-400 normal-case">
-              <Loader2 size={11} className="animate-spin" />
-              running...
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-white/10 bg-background/40 shrink-0">
+        <div className="flex items-center gap-2 flex-1 min-w-0 overflow-x-auto no-scrollbar scroll-smooth">
+          <div className="flex items-center gap-2 text-[10px] font-bold text-text/30 uppercase tracking-[0.2em] px-2 border-r border-white/10 mr-2 shrink-0">
+            <TerminalSquare size={13} />
+            Output
+          </div>
+          
+          {sessions.map((session) => (
+            <div 
+              key={session.id}
+              onClick={() => setActiveSessionId(session.id)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-all shrink-0 whitespace-nowrap group ${
+                activeSessionId === session.id 
+                  ? 'bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]' 
+                  : 'text-text/40 hover:text-text/70 border border-transparent'
+              }`}
+            >
+              <span>{session.name}</span>
+              {sessions.length > 1 && (
+                <button 
+                  onClick={(e) => removeSession(e, session.id)}
+                  className={`p-0.5 rounded hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity ${activeSessionId === session.id ? 'text-primary' : 'text-text/40'}`}
+                >
+                  <X size={10} />
+                </button>
+              )}
+            </div>
+          ))}
+          
           <button 
-            onClick={onClear}
-            className="text-xs text-white/40 hover:text-white transition-colors"
+            onClick={addSession}
+            className="p-1.5 text-text/30 hover:text-text hover:bg-white/5 rounded-lg transition-colors cursor-pointer shrink-0 ml-1"
+            title="New Terminal Session"
           >
-            Clear
+            <Plus size={14} />
           </button>
-          <button 
-            onClick={onClose}
-            className="p-1 text-white/40 hover:text-white transition-colors"
-          >
+        </div>
+        
+        <div className="flex items-center gap-3 shrink-0 ml-4 border-l border-white/10 pl-4">
+          <button onClick={onClose} className="p-1 text-text/30 hover:text-text cursor-pointer transition-colors" title="Hide Terminal">
             <X size={14} />
           </button>
         </div>
       </div>
       
-      {/* Output area */}
-      <div 
-        ref={scrollRef}
-        className="flex-1 overflow-y-auto px-4 pt-3 pb-1 font-mono text-[13px] leading-relaxed"
-        onClick={() => inputRef.current?.focus()}
-      >
-        {terminalOutput.map((log, i) => (
-          <div key={i} className={`whitespace-pre-wrap break-all ${
-            log.type === 'error' ? 'text-red-400' : 
-            log.type === 'info' ? 'text-cyan-400' : 
-            'text-white/80'
-          }`}>
-            {log.text}
-          </div>
-        ))}
+      <div className="flex-1 w-full bg-black/10 overflow-hidden relative">
+        <AnimatePresence initial={false}>
+          {sessions.map(session => (
+            <TerminalSession 
+              key={session.id} 
+              id={session.id} 
+              isActive={activeSessionId === session.id}
+              onReady={() => {}}
+            />
+          ))}
+        </AnimatePresence>
       </div>
 
-      {/* Command input */}
-      <div className="flex items-center gap-2 px-4 py-2 border-t border-white/5 bg-black/20">
-        <span className="text-emerald-400 font-mono text-sm font-bold shrink-0">$</span>
-        <input
-          ref={inputRef}
-          value={commandInput}
-          onChange={e => setCommandInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          disabled={isRunning}
-          placeholder={isRunning ? 'Command running...' : 'Type a command... (npm, node, npx, git, etc.)'}
-          className="flex-1 bg-transparent text-sm font-mono text-white outline-none placeholder-white/25 disabled:opacity-50"
-          autoFocus
-        />
-      </div>
     </motion.div>
   );
 });
