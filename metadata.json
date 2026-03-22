@@ -1,0 +1,5 @@
+{
+  "name": "AI Code Studio",
+  "description": "A web-based coding environment with an integrated AI assistant, inspired by Google AI Studio.",
+  "requestFramePermissions": []
+}
