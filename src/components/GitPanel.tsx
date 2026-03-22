@@ -41,7 +41,7 @@ const GitPanel = React.memo(function GitPanel({
 }: GitPanelProps) {
   if (isGitLoading) {
     return (
-      <div className="flex items-center justify-center py-8 text-cyan-400">
+      <div className="flex items-center justify-center py-8 text-primary">
         <Loader2 className="animate-spin" size={24} />
       </div>
     );
@@ -50,11 +50,13 @@ const GitPanel = React.memo(function GitPanel({
   if (!gitStatus?.isRepo) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-center gap-4">
-        <GitBranch size={48} className="text-white/20" />
-        <p className="text-sm text-white/60">No Git repository found.</p>
+        <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+          <GitBranch size={32} className="text-text/15" />
+        </div>
+        <p className="text-[12px] text-text/40">No Git repository found</p>
         <button 
           onClick={onGitInit}
-          className="glass-button px-4 py-2 text-sm text-cyan-300 rounded-lg"
+          className="glass-button px-4 py-2 text-[12px] font-medium text-primary rounded-lg cursor-pointer"
         >
           Initialize Repository
         </button>
@@ -64,12 +66,14 @@ const GitPanel = React.memo(function GitPanel({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Remote Setup */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-white/50 uppercase">Remote</span>
-          <button onClick={() => onSetIsSettingRemote(!isSettingRemote)} className="text-white/40 hover:text-white">
-            <Settings size={14} />
+          <span className="text-[10px] font-semibold text-text/30 uppercase tracking-[0.15em]">Remote</span>
+          <button
+            onClick={() => onSetIsSettingRemote(!isSettingRemote)}
+            className="text-text/25 hover:text-text/60 transition-colors cursor-pointer"
+          >
+            <Settings size={13} />
           </button>
         </div>
         {isSettingRemote && (
@@ -79,101 +83,131 @@ const GitPanel = React.memo(function GitPanel({
               value={remoteUrl}
               onChange={e => onSetRemoteUrl(e.target.value)}
               placeholder="https://github.com/..."
-              className="flex-1 bg-black/40 text-xs text-white px-2 py-1 border border-white/10 rounded outline-none"
+              className="flex-1 bg-white/[0.03] text-[11px] text-text px-2.5 py-1.5 border border-white/[0.06] rounded-lg outline-none focus:border-primary/40 transition-colors"
             />
-            <button onClick={onGitRemote} className="text-xs bg-cyan-500/20 text-cyan-300 px-2 rounded">Save</button>
+            <button
+              onClick={onGitRemote}
+              className="text-[11px] bg-primary/15 text-primary px-2.5 rounded-lg hover:bg-primary/20 transition-colors cursor-pointer"
+            >
+              Save
+            </button>
           </div>
         )}
         {remoteUrl && !isSettingRemote && (
-          <div className="text-xs text-white/60 truncate" title={remoteUrl}>{remoteUrl}</div>
+          <div className="text-[11px] text-text/40 truncate" title={remoteUrl}>{remoteUrl}</div>
         )}
         <div className="flex gap-2 mt-1">
-          <button onClick={onGitPull} disabled={!remoteUrl} className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs bg-white/5 hover:bg-white/10 rounded disabled:opacity-50">
+          <button
+            onClick={onGitPull}
+            disabled={!remoteUrl}
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-medium bg-white/[0.03] hover:bg-white/[0.06] rounded-lg disabled:opacity-30 transition-colors cursor-pointer text-text/50"
+          >
             <GitPullRequest size={12} /> Pull
           </button>
-          <button onClick={onGitPush} disabled={!remoteUrl} className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs bg-white/5 hover:bg-white/10 rounded disabled:opacity-50">
+          <button
+            onClick={onGitPush}
+            disabled={!remoteUrl}
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-medium bg-white/[0.03] hover:bg-white/[0.06] rounded-lg disabled:opacity-30 transition-colors cursor-pointer text-text/50"
+          >
             <Send size={12} /> Push
           </button>
         </div>
       </div>
 
-      <hr className="border-white/10" />
+      <div className="border-t border-white/[0.04]" />
 
-      {/* Commit Area */}
       <div className="flex flex-col gap-2">
-        <span className="text-xs font-semibold text-white/50 uppercase">Commit</span>
+        <span className="text-[10px] font-semibold text-text/30 uppercase tracking-[0.15em]">Commit</span>
         <textarea
           value={commitMessage}
           onChange={e => onSetCommitMessage(e.target.value)}
           placeholder="Commit message..."
-          className="w-full bg-black/40 text-sm text-white p-2 border border-white/10 rounded-lg outline-none resize-none h-20"
+          className="w-full bg-white/[0.03] text-[12px] text-text p-2.5 border border-white/[0.06] rounded-lg outline-none resize-none h-20 focus:border-primary/40 transition-colors placeholder:text-text/20"
         />
         <button 
           onClick={onGitCommit}
           disabled={!commitMessage.trim() || (gitStatus.status.staged.length === 0)}
-          className="glass-button py-1.5 text-sm text-cyan-300 rounded-lg disabled:opacity-50 flex items-center justify-center gap-2"
+          className="glass-button py-1.5 text-[12px] font-medium text-primary rounded-lg disabled:opacity-30 flex items-center justify-center gap-2 cursor-pointer"
         >
-          <GitCommit size={14} /> Commit
+          <GitCommit size={13} /> Commit
         </button>
       </div>
 
-      <hr className="border-white/10" />
+      <div className="border-t border-white/[0.04]" />
 
-      {/* Staged Changes */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-white/50 uppercase">Staged Changes ({gitStatus.status.staged.length})</span>
-          <button onClick={() => onGitUnstage('.')} className="text-xs text-white/40 hover:text-white" title="Unstage All">
-            <MinusCircle size={14} />
+          <span className="text-[10px] font-semibold text-text/30 uppercase tracking-[0.15em]">Staged Changes ({gitStatus.status.staged.length})</span>
+          <button
+            onClick={() => onGitUnstage('.')}
+            className="text-text/25 hover:text-text/60 transition-colors cursor-pointer"
+            title="Unstage All"
+          >
+            <MinusCircle size={13} />
           </button>
         </div>
         <div className="flex flex-col gap-1">
           {gitStatus.status.staged.map((file: string) => (
-            <div key={file} className="flex items-center justify-between text-xs text-emerald-400 px-2 py-1 bg-white/5 rounded">
+            <div key={file} className="flex items-center justify-between text-[11px] text-emerald-400 px-2.5 py-1.5 bg-emerald-500/[0.06] rounded-lg">
               <span className="truncate">{file}</span>
-              <button onClick={() => onGitUnstage(file)} className="text-white/40 hover:text-white">
+              <button
+                onClick={() => onGitUnstage(file)}
+                className="text-text/25 hover:text-text/60 transition-colors cursor-pointer shrink-0 ml-2"
+              >
                 <MinusCircle size={12} />
               </button>
             </div>
           ))}
-          {gitStatus.status.staged.length === 0 && <span className="text-xs text-white/30 italic px-2">No staged changes</span>}
+          {gitStatus.status.staged.length === 0 && <span className="text-[11px] text-text/20 px-2">No staged changes</span>}
         </div>
       </div>
 
-      {/* Unstaged Changes */}
-      <div className="flex flex-col gap-2 mt-2">
+      <div className="flex flex-col gap-2 mt-1">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-white/50 uppercase">Changes ({gitStatus.status.modified.length + gitStatus.status.not_added.length + gitStatus.status.deleted.length})</span>
-          <button onClick={() => onGitStage('.')} className="text-xs text-white/40 hover:text-white" title="Stage All">
-            <PlusCircle size={14} />
+          <span className="text-[10px] font-semibold text-text/30 uppercase tracking-[0.15em]">Changes ({gitStatus.status.modified.length + gitStatus.status.not_added.length + gitStatus.status.deleted.length})</span>
+          <button
+            onClick={() => onGitStage('.')}
+            className="text-text/25 hover:text-text/60 transition-colors cursor-pointer"
+            title="Stage All"
+          >
+            <PlusCircle size={13} />
           </button>
         </div>
         <div className="flex flex-col gap-1">
           {gitStatus.status.modified.map((file: string) => (
-            <div key={file} className="flex items-center justify-between text-xs text-amber-400 px-2 py-1 bg-white/5 rounded">
+            <div key={file} className="flex items-center justify-between text-[11px] text-amber-400 px-2.5 py-1.5 bg-amber-500/[0.06] rounded-lg">
               <span className="truncate">{file}</span>
-              <button onClick={() => onGitStage(file)} className="text-white/40 hover:text-white">
+              <button
+                onClick={() => onGitStage(file)}
+                className="text-text/25 hover:text-text/60 transition-colors cursor-pointer shrink-0 ml-2"
+              >
                 <PlusCircle size={12} />
               </button>
             </div>
           ))}
           {gitStatus.status.deleted.map((file: string) => (
-            <div key={file} className="flex items-center justify-between text-xs text-red-400 px-2 py-1 bg-white/5 rounded">
+            <div key={file} className="flex items-center justify-between text-[11px] text-red-400 px-2.5 py-1.5 bg-red-500/[0.06] rounded-lg">
               <span className="truncate">{file}</span>
-              <button onClick={() => onGitStage(file)} className="text-white/40 hover:text-white">
+              <button
+                onClick={() => onGitStage(file)}
+                className="text-text/25 hover:text-text/60 transition-colors cursor-pointer shrink-0 ml-2"
+              >
                 <PlusCircle size={12} />
               </button>
             </div>
           ))}
           {gitStatus.status.not_added.map((file: string) => (
-            <div key={file} className="flex items-center justify-between text-xs text-cyan-400 px-2 py-1 bg-white/5 rounded">
+            <div key={file} className="flex items-center justify-between text-[11px] text-primary px-2.5 py-1.5 bg-primary/[0.06] rounded-lg">
               <span className="truncate">{file}</span>
-              <button onClick={() => onGitStage(file)} className="text-white/40 hover:text-white">
+              <button
+                onClick={() => onGitStage(file)}
+                className="text-text/25 hover:text-text/60 transition-colors cursor-pointer shrink-0 ml-2"
+              >
                 <PlusCircle size={12} />
               </button>
             </div>
           ))}
-          {(gitStatus.status.modified.length + gitStatus.status.not_added.length + gitStatus.status.deleted.length) === 0 && <span className="text-xs text-white/30 italic px-2">No changes</span>}
+          {(gitStatus.status.modified.length + gitStatus.status.not_added.length + gitStatus.status.deleted.length) === 0 && <span className="text-[11px] text-text/20 px-2">No changes</span>}
         </div>
       </div>
     </div>

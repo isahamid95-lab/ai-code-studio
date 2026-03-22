@@ -1,66 +1,82 @@
 import React from 'react';
-import { Code2, Settings, Play, Download, HelpCircle } from 'lucide-react';
+import { Code2, Settings, Play, Download, Keyboard, Palette } from 'lucide-react';
 import { exportWorkspaceAsZip } from '../utils/export';
 
 interface HeaderProps {
   onOpenSettings: () => void;
   onOpenShortcuts: () => void;
+  onOpenTheme: () => void;
   onRunCode: () => void;
+  hasActiveFile: boolean;
 }
 
 const Header = React.memo(function Header({
   onOpenSettings,
   onOpenShortcuts,
+  onOpenTheme,
   onRunCode,
+  hasActiveFile,
 }: HeaderProps) {
   const handleExport = async () => {
     await exportWorkspaceAsZip();
   };
+
   return (
-    <header className="glass-panel rounded-2xl h-16 flex items-center justify-between px-6 shrink-0">
-      <div className="flex items-center gap-4">
-        <div className="p-2 bg-gradient-to-br from-primary/20 to-cta/20 text-primary rounded-xl border border-primary/20 shadow-[0_0_15px_rgba(59,130,246,0.2)]">
-          <Code2 size={24} />
-        </div>
-        <div>
-          <h1 className="text-lg font-semibold tracking-tight text-text leading-tight">AI Code Studio Pro</h1>
-          <p className="text-xs text-primary/80 leading-tight">Glassmorphism Edition</p>
-        </div>
-      </div>
-      
+    <header className="glass-panel rounded-2xl h-14 flex items-center justify-between px-5 shrink-0">
       <div className="flex items-center gap-3">
-        <button 
+        <div className="relative p-2 bg-primary/10 rounded-xl border border-primary/15">
+          <Code2 size={20} className="text-primary" />
+          <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-400 rounded-full border border-background" />
+        </div>
+        <span className="text-sm font-semibold tracking-tight text-text">AI Code Studio</span>
+      </div>
+
+      <div className="flex items-center gap-1.5">
+        <button
+          onClick={onOpenTheme}
+          className="p-2.5 text-text/40 hover:text-text hover:bg-white/[0.06] rounded-xl transition-all cursor-pointer"
+          title="Theme Settings"
+        >
+          <Palette size={16} />
+        </button>
+
+        <button
           onClick={onOpenSettings}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white/5 text-text/70 hover:bg-white/10 hover:text-text rounded-full transition-all border border-white/10 cursor-pointer"
+          className="p-2.5 text-text/40 hover:text-text hover:bg-white/[0.06] rounded-xl transition-all cursor-pointer"
+          title="Settings"
         >
-          <Settings size={14} />
-          <span>Settings</span>
+          <Settings size={16} />
         </button>
 
-        <button 
-          onClick={handleExport}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-cta/20 text-white hover:bg-cta/30 rounded-full transition-all border border-cta/30 shadow-[0_0_15px_rgba(37,99,235,0.1)] cursor-pointer"
-        >
-          <Download size={14} />
-          <span>Export App</span>
-        </button>
-
-        <button 
+        <button
           onClick={onOpenShortcuts}
-          className="p-2.5 text-text/40 hover:text-text hover:bg-white/5 rounded-full transition-all cursor-pointer"
+          className="p-2.5 text-text/40 hover:text-text hover:bg-white/[0.06] rounded-xl transition-all cursor-pointer"
           title="Keyboard Shortcuts"
         >
-          <HelpCircle size={18} />
+          <Keyboard size={16} />
         </button>
 
-        <div className="w-px h-6 bg-white/10 mx-2"></div>
-
-        <button 
-          onClick={onRunCode}
-          className="flex items-center gap-2 px-5 py-2 text-sm font-medium bg-primary/20 text-white hover:bg-primary/30 rounded-full transition-all border border-primary/30 shadow-[0_0_15px_rgba(59,130,246,0.1)] cursor-pointer"
+        <button
+          onClick={handleExport}
+          className="p-2.5 text-text/40 hover:text-text hover:bg-white/[0.06] rounded-xl transition-all cursor-pointer"
+          title="Export Project"
         >
-          <Play size={14} className="fill-current" />
-          <span>Run Code</span>
+          <Download size={16} />
+        </button>
+
+        <div className="w-px h-5 bg-white/[0.06] mx-1" />
+
+        <button
+          onClick={onRunCode}
+          disabled={!hasActiveFile}
+          className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl transition-all border ${
+            hasActiveFile 
+              ? 'bg-primary/15 text-primary hover:bg-primary/25 border-primary/20 cursor-pointer' 
+              : 'bg-white/[0.02] text-text/20 border-white/[0.04] cursor-not-allowed'
+          }`}
+        >
+          <Play size={13} className="fill-current" />
+          <span>Run</span>
         </button>
       </div>
     </header>

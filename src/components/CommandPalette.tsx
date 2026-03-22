@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, FileCode2, Command, Zap, Play, Terminal, Trash2, X, Github, Globe } from 'lucide-react';
+import { Search, FileCode2, Command, Zap, Play, Terminal, Trash2, Globe, Github } from 'lucide-react';
 import { FileItem } from '../types';
 
 interface CommandPaletteProps {
@@ -90,27 +90,27 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           initial={{ scale: 0.95, opacity: 0, y: -20 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.95, opacity: 0, y: -20 }}
-          className="w-full max-w-2xl bg-secondary/80 border border-white/10 rounded-2xl shadow-2xl overflow-hidden glass-panel"
+          className="w-full max-w-2xl bg-background border border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden backdrop-blur-xl"
           onClick={e => e.stopPropagation()}
         >
-          <div className="flex items-center px-4 border-b border-white/10">
-            <Search className="text-text/30 mr-3" size={18} />
+          <div className="flex items-center px-4 border-b border-white/[0.06]">
+            <Search className="text-text/25 mr-3" size={18} />
             <input
               autoFocus
-              className="flex-1 h-14 bg-transparent border-none text-text placeholder-text/20 focus:outline-none text-base"
+              className="flex-1 h-14 bg-transparent border-none text-text placeholder-text/20 focus:outline-none text-[14px]"
               placeholder="Search files and commands..."
               value={query}
               onChange={e => setQuery(e.target.value)}
             />
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-white/5 border border-white/10">
-              <span className="text-[10px] text-text/40 font-mono">ESC</span>
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/[0.04] border border-white/[0.06]">
+              <span className="text-[10px] text-text/30 font-mono">ESC</span>
             </div>
           </div>
 
-          <div className="max-h-[450px] overflow-y-auto p-2 custom-scrollbar">
+          <div className="max-h-[450px] overflow-y-auto p-2">
             {filteredItems.length === 0 ? (
               <div className="py-12 text-center">
-                <p className="text-text/20 italic">No results for "{query}"</p>
+                <p className="text-text/20 text-[13px]">No results for "{query}"</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -120,7 +120,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                   
                   return (
                     <div key={category}>
-                      <h3 className="px-3 py-2 text-[10px] font-bold text-text/20 uppercase tracking-[0.2em]">
+                      <h3 className="px-3 py-2 text-[10px] font-semibold text-text/20 uppercase tracking-[0.15em]">
                         {category}
                       </h3>
                       <div className="space-y-1">
@@ -133,14 +133,14 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                               onClick={() => handleSelect(item)}
                               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all ${
                                 selectedIndex === globalIndex 
-                                  ? 'bg-primary/20 text-text border border-primary/30 shadow-[0_0_20px_rgba(59,130,246,0.2)]' 
-                                  : 'text-text/50 border border-transparent hover:bg-white/5'
+                                  ? 'bg-primary/15 text-text border border-primary/25' 
+                                  : 'text-text/45 border border-transparent hover:bg-white/[0.04]'
                               }`}
                             >
-                              <item.icon size={16} className={selectedIndex === globalIndex ? 'text-primary' : 'text-text/30'} />
-                              <span className="text-sm font-medium flex-1">{item.name}</span>
+                              <item.icon size={15} className={selectedIndex === globalIndex ? 'text-primary' : 'text-text/25'} />
+                              <span className="text-[13px] font-medium flex-1">{item.name}</span>
                               {selectedIndex === globalIndex && (
-                                <Zap size={14} className="text-primary animate-pulse" />
+                                <Zap size={13} className="text-primary animate-pulse" />
                               )}
                             </div>
                           );
@@ -153,18 +153,18 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             )}
           </div>
           
-          <div className="px-4 py-3 bg-black/40 border-t border-white/10 flex items-center justify-between">
+          <div className="px-4 py-3 bg-white/[0.02] border-t border-white/[0.06] flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-1 text-[10px] text-text/30">
-                <kbd className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 font-mono">↑↓</kbd>
+              <div className="flex items-center gap-1 text-[10px] text-text/25">
+                <kbd className="px-1.5 py-0.5 rounded-md bg-white/[0.04] border border-white/[0.06] font-mono">↑↓</kbd>
                 <span>Navigate</span>
               </div>
-              <div className="flex items-center gap-1 text-[10px] text-text/30">
-                <kbd className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 font-mono">↵</kbd>
+              <div className="flex items-center gap-1 text-[10px] text-text/25">
+                <kbd className="px-1.5 py-0.5 rounded-md bg-white/[0.04] border border-white/[0.06] font-mono">↵</kbd>
                 <span>Select</span>
               </div>
             </div>
-            <div className="text-[10px] text-text/20 font-bold uppercase tracking-widest flex items-center gap-2">
+            <div className="text-[10px] text-text/15 font-semibold uppercase tracking-[0.15em] flex items-center gap-1.5">
               <Command size={10} />
               Command Palette
             </div>

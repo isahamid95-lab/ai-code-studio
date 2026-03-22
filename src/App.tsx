@@ -7,8 +7,9 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Plus, FileCode2, Code2, Loader2,
-  PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen,
-  X, Lightbulb, Bug, Sparkles, Globe, Trash2, Search, Settings as SettingsIcon, Github
+  PanelRightClose, PanelRightOpen,
+  X, Lightbulb, Bug, Sparkles, Globe, Trash2,
+  FolderTree, Search, GitBranch, List, Zap, Network
 } from 'lucide-react';
 
 import type { Language } from './types';
@@ -34,9 +35,8 @@ import { Breadcrumbs } from './components/Breadcrumbs';
 import { SearchPanel } from './components/SearchPanel';
 import { SymbolOutline } from './components/SymbolOutline';
 import { AIIntelPanel } from './components/AIIntelPanel';
-import { Zap } from 'lucide-react';
+import { MCPServersPanel } from './components/MCPServersPanel';
 
-// --- Language Extension Helper ---
 const getLanguageExtension = (lang: Language) => {
   switch (lang) {
     case 'javascript':
@@ -47,13 +47,22 @@ const getLanguageExtension = (lang: Language) => {
   }
 };
 
+type LeftTab = 'explorer' | 'search' | 'git' | 'outline' | 'intel' | 'mcp';
+
+const ACTIVITY_ITEMS: { id: LeftTab; icon: React.ReactNode; label: string }[] = [
+  { id: 'explorer', icon: <FolderTree size={18} />, label: 'Explorer' },
+  { id: 'search', icon: <Search size={18} />, label: 'Search' },
+  { id: 'git', icon: <GitBranch size={18} />, label: 'Git' },
+  { id: 'mcp', icon: <Network size={18} />, label: 'MCP Hub' },
+  { id: 'outline', icon: <List size={18} />, label: 'Outline' },
+  { id: 'intel', icon: <Zap size={18} />, label: 'AI Intel' },
+];
+
 export default function App() {
-  // --- Panel State ---
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
-  const [leftPanelTab, setLeftPanelTab] = useState<'explorer' | 'search' | 'git' | 'outline' | 'intel'>('explorer');
+  const [leftPanelTab, setLeftPanelTab] = useState<LeftTab>('explorer');
 
-  // --- Settings State ---
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isThemeSelectorOpen, setIsThemeSelectorOpen] = useState(false);
@@ -61,9 +70,7 @@ export default function App() {
   const [alibabaApiKey, setAlibabaApiKey] = useState(import.meta.env.VITE_ALIBABA_API_KEY || '');
   const [alibabaModel, setAlibabaModel] = useState('qwen3-coder-plus');
 
-  // --- Preview State ---
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-
   const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
   const [isScaffolding, setIsScaffolding] = useState(false);
   const [tabContextMenu, setTabContextMenu] = useState<{ x: number, y: number, id: string } | null>(null);
@@ -83,7 +90,6 @@ export default function App() {
     }
   };
 
-  // --- Custom Hooks ---
   const fileHook = useFiles();
   const gitHook = useGit(
     fileHook.fetchFiles,
@@ -102,7 +108,6 @@ export default function App() {
     fileHook.selectedCode,
     setRightPanelOpen,
   );
-  // Agent now shares chat state — setChatMessages and setIsGenerating come from chatHook
   const agentHook = useAgent(
     alibabaModel,
     fileHook.applyFileFromAgent,
@@ -112,12 +117,10 @@ export default function App() {
     fileHook.fetchFiles,
   );
 
-  // Fetch git status on mount
   useEffect(() => {
     gitHook.fetchGitStatus();
   }, []);
 
-  // Apply stored theme on mount
   useEffect(() => {
     const storedTheme = getStoredTheme()
     if (storedTheme) {
@@ -125,43 +128,36 @@ export default function App() {
     }
   }, [])
 
-  // --- Keyboard Shortcuts ---
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
       const cmdKey = isMac ? e.metaKey : e.ctrlKey;
 
-      // Cmd+K: Command Palette
       if (cmdKey && e.key === 'k') {
         e.preventDefault();
         setIsCommandPaletteOpen(prev => !prev);
       }
-      
-      // Cmd+Shift+F / Ctrl+Shift+F — Global Search
+
       if (cmdKey && e.shiftKey && e.key === 'F') {
         e.preventDefault();
         setIsGlobalSearchOpen(true);
       }
-      
-      // Cmd+B / Ctrl+B — Toggle left panel
+
       if (cmdKey && e.key === 'b' && !e.shiftKey) {
         e.preventDefault();
         setLeftPanelOpen(prev => !prev);
       }
 
-      // Cmd+J / Ctrl+J — Toggle terminal
       if (cmdKey && (e.key === '`' || e.key === 'j')) {
         e.preventDefault();
         fileHook.setIsTerminalOpen(prev => !prev);
       }
 
-      // Cmd+Shift+B — Toggle right panel
       if (cmdKey && e.key === 'B' && e.shiftKey) {
         e.preventDefault();
         setRightPanelOpen(prev => !prev);
       }
 
-      // F5 — Run code
       if (e.key === 'F5') {
         e.preventDefault();
         fileHook.runCode();
@@ -176,7 +172,6 @@ export default function App() {
     if (savedBg) setBackgroundUrl(savedBg);
   }, []);
 
-  // Handle send — routes to agent or chat based on mode
   const handleSend = useCallback((text: string) => {
     if (agentHook.agentMode) {
       agentHook.sendAgentMessage(text, 'agent');
@@ -187,90 +182,93 @@ export default function App() {
     }
   }, [agentHook.agentMode, agentHook.planMode, agentHook.sendAgentMessage, chatHook.sendMessage]);
 
+  const handleActivityClick = (tab: LeftTab) => {
+    if (leftPanelTab === tab && leftPanelOpen) {
+      setLeftPanelOpen(false);
+    } else {
+      setLeftPanelTab(tab);
+      setLeftPanelOpen(true);
+    }
+  };
+
   return (
     <div className="h-screen w-screen overflow-hidden relative text-text font-sans selection:bg-primary/30">
-      
-      {/* --- Dynamic AI Background --- */}
-      <div 
+
+      {/* Background layers */}
+      <div
         className="absolute inset-0 bg-cover bg-center transition-opacity duration-1000"
-        style={{ 
+        style={{
           backgroundImage: backgroundUrl ? `url(${backgroundUrl})` : 'none',
-          opacity: backgroundUrl ? 0.3 : 0 
+          opacity: backgroundUrl ? 0.15 : 0
         }}
       />
-      <div className="absolute inset-0 bg-background -z-10" />
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
+      <div className="absolute inset-0 bg-background" />
+      {backgroundUrl && <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />}
 
-      {/* --- Main App Container --- */}
-      <div className="absolute inset-0 p-4 flex flex-col gap-4 z-10">
-        
-        {/* Top Navigation */}
-        <Suspense fallback={<div className="h-14 glass-panel rounded-2xl animate-pulse" />}>
-          <Header
-            onOpenSettings={() => setIsSettingsOpen(true)}
-            onOpenShortcuts={() => setIsShortcutsOpen(true)}
-            onRunCode={fileHook.runCode}
-          />
-        </Suspense>
+      {/* Main container */}
+      <div className="absolute inset-0 flex flex-col z-10">
 
-        {/* --- Main Workspace --- */}
-        <main className="flex-1 flex gap-4 overflow-hidden">
-          
-          {/* --- Left Sidebar --- */}
+        {/* Header */}
+        <div className="p-3 pb-0">
+          <Suspense fallback={<div className="h-14 glass-panel rounded-2xl animate-pulse" />}>
+            <Header
+              onOpenSettings={() => setIsSettingsOpen(true)}
+              onOpenShortcuts={() => setIsShortcutsOpen(true)}
+              onOpenTheme={() => setIsThemeSelectorOpen(true)}
+              onRunCode={fileHook.runCode}
+              hasActiveFile={!!fileHook.activeFile}
+            />
+          </Suspense>
+        </div>
+
+        {/* Workspace */}
+        <main className="flex-1 flex overflow-hidden p-3 gap-2">
+
+          {/* Activity Bar */}
+          <div className="flex flex-col items-center py-2 gap-1 shrink-0">
+            {ACTIVITY_ITEMS.map(item => (
+              <button
+                key={item.id}
+                onClick={() => handleActivityClick(item.id)}
+                className={`activity-icon ${leftPanelOpen && leftPanelTab === item.id ? 'active' : 'text-text/30 hover:text-text/60'}`}
+                title={item.label}
+                aria-label={item.label}
+              >
+                {item.icon}
+              </button>
+            ))}
+          </div>
+
+          {/* Left Panel Content */}
           <AnimatePresence initial={false}>
             {leftPanelOpen && (
-              <motion.aside 
+              <motion.aside
                 initial={{ width: 0, opacity: 0 }}
-                animate={{ width: 260, opacity: 1 }}
+                animate={{ width: 240, opacity: 1 }}
                 exit={{ width: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
+                transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
                 className="glass-panel rounded-2xl flex flex-col overflow-hidden shrink-0"
               >
-                <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
-                  <div className="flex gap-4">
-                    <button 
-                      onClick={() => setLeftPanelTab('explorer')}
-                      className={`text-[11px] font-bold uppercase tracking-[0.2em] transition-all cursor-pointer ${leftPanelTab === 'explorer' ? 'text-primary' : 'text-text/30 hover:text-text/60'}`}
-                    >
-                      Explorer
-                    </button>
-                    <button 
-                      onClick={() => setLeftPanelTab('search')}
-                      className={`text-[11px] font-bold uppercase tracking-[0.2em] transition-all cursor-pointer ${leftPanelTab === 'search' ? 'text-primary' : 'text-text/30 hover:text-text/60'}`}
-                    >
-                      Search
-                    </button>
-                    <button 
-                      onClick={() => setLeftPanelTab('git')}
-                      className={`text-[11px] font-bold uppercase tracking-[0.2em] transition-all cursor-pointer ${leftPanelTab === 'git' ? 'text-primary' : 'text-text/30 hover:text-text/60'}`}
-                    >
-                      Git
-                    </button>
-                    <button 
-                      onClick={() => setLeftPanelTab('outline')}
-                      className={`text-[11px] font-bold uppercase tracking-[0.2em] transition-all cursor-pointer ${leftPanelTab === 'outline' ? 'text-primary' : 'text-text/30 hover:text-text/60'}`}
-                    >
-                      Outline
-                    </button>
-                    <button 
-                      onClick={() => setLeftPanelTab('intel')}
-                      className={`text-[11px] font-bold uppercase tracking-[0.2em] transition-all cursor-pointer ${leftPanelTab === 'intel' ? 'text-primary' : 'text-text/30 hover:text-text/60'}`}
-                      title="AI Intelligence"
-                    >
-                      <Zap size={14} className={leftPanelTab === 'intel' ? 'animate-pulse' : ''} />
-                    </button>
-                  </div>
+                {/* Panel Header */}
+                <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.15em] text-text/40">
+                    {leftPanelTab === 'explorer' ? 'Explorer' :
+                     leftPanelTab === 'search' ? 'Search' :
+                     leftPanelTab === 'git' ? 'Source Control' :
+                     leftPanelTab === 'mcp' ? 'MCP Hub' :
+                     leftPanelTab === 'outline' ? 'Outline' : 'AI Intel'}
+                  </span>
                   {leftPanelTab === 'explorer' && (
-                    <button 
+                    <button
                       onClick={() => fileHook.setIsCreatingFile(true)}
-                      className="p-1.5 text-text/40 hover:text-text hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
+                      className="p-1 text-text/30 hover:text-text hover:bg-white/[0.06] rounded-md transition-all cursor-pointer"
                     >
-                      <Plus size={16} />
+                      <Plus size={14} />
                     </button>
                   )}
                 </div>
-                
-                <div className="flex-1 overflow-y-auto py-2">
+
+                <div className="flex-1 overflow-y-auto py-1">
                   {leftPanelTab === 'explorer' && (
                     <FileExplorer
                       files={fileHook.files}
@@ -288,13 +286,13 @@ export default function App() {
                     />
                   )}
                   {leftPanelTab === 'search' && (
-                    <SearchPanel 
+                    <SearchPanel
                       files={fileHook.files}
                       onOpenFile={fileHook.openFile}
                     />
                   )}
                   {leftPanelTab === 'git' && (
-                    <div className="px-4 py-2 flex flex-col h-full">
+                    <div className="px-3 py-2 flex flex-col h-full">
                       <GitPanel
                         gitStatus={gitHook.gitStatus}
                         isGitLoading={gitHook.isGitLoading}
@@ -315,18 +313,25 @@ export default function App() {
                     </div>
                   )}
                   {leftPanelTab === 'outline' && (
-                    <SymbolOutline 
+                    <SymbolOutline
                       content={fileHook.activeFile?.content || ''}
                       onJumpToLine={(line) => {
                         console.log("Jump to line:", line);
-                        // Future: Scroll editor to line
                       }}
                     />
                   )}
                   {leftPanelTab === 'intel' && (
-                    <AIIntelPanel 
-                      activeFile={fileHook.activeFile || null} 
+                    <AIIntelPanel
+                      activeFile={fileHook.activeFile || null}
                       onRefreshWorkspace={fileHook.fetchFiles}
+                    />
+                  )}
+                  {leftPanelTab === 'mcp' && (
+                    <MCPServersPanel
+                      onConnect={(name) => {
+                        agentHook.sendAgentMessage(`[System Notice]: The user has successfully authenticated and connected the remote MCP: "${name}". You now have authorization and context to act as an expert for ${name} API and provide code using it.`, 'agent');
+                        setRightPanelOpen(true);
+                      }}
                     />
                   )}
                 </div>
@@ -334,127 +339,122 @@ export default function App() {
             )}
           </AnimatePresence>
 
-          {/* --- Center Column (Editor + Terminal) --- */}
+          {/* Center Editor Column */}
           <section className="glass-panel rounded-2xl flex-1 flex flex-col min-w-0 relative overflow-hidden">
-            
-            {/* Editor Header / Tabs */}
-            <div className="flex items-center justify-between border-b border-white/10 shrink-0 bg-background/40">
+
+            {/* Editor Tabs */}
+            <div className="flex items-center justify-between border-b border-white/[0.06] shrink-0">
               <div className="flex items-center overflow-x-auto no-scrollbar scroll-smooth flex-1 min-w-0">
-                <button 
-                  onClick={() => setLeftPanelOpen(!leftPanelOpen)}
-                  className="p-3 text-text/50 hover:text-text transition-colors shrink-0 border-r border-white/10 h-full cursor-pointer"
-                  title="Toggle Explorer (Ctrl+B)"
-                >
-                  {leftPanelOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
-                </button>
-                
                 {fileHook.openTabs.map(tabId => {
                   const file = fileHook.files.find(f => f.id === tabId);
                   if (!file) return null;
                   const isActive = fileHook.activeTabId === tabId;
                   const isDirty = (fileHook as any).dirtyFileIds?.has(tabId);
-                  
+
                   return (
-                    <div 
+                    <div
                       key={tabId}
                       onClick={() => fileHook.setActiveTabId(tabId)}
                       onContextMenu={(e) => {
                         e.preventDefault();
                         setTabContextMenu({ x: e.clientX, y: e.clientY, id: tabId });
                       }}
-                      className={`flex items-center gap-2 px-5 py-3 text-sm border-r border-white/10 cursor-pointer min-w-[140px] max-w-[220px] transition-all group relative ${
-                        isActive ? 'bg-primary/5 text-primary border-b-2 border-b-primary shadow-[inset_0_-8px_20px_rgba(59,130,246,0.05)]' : 'text-text/50 hover:bg-white/5 border-b-2 border-b-transparent hover:text-text/80'
+                      className={`flex items-center gap-2 px-4 py-2.5 text-[12px] border-r border-white/[0.04] cursor-pointer min-w-[120px] max-w-[180px] transition-all group relative ${
+                        isActive
+                          ? 'bg-white/[0.04] text-text'
+                          : 'text-text/35 hover:bg-white/[0.02] hover:text-text/60'
                       }`}
                     >
-                      <FileCode2 size={14} className={`shrink-0 ${isActive ? 'text-primary' : 'text-text/30'}`} />
-                      <span className="truncate flex-1 font-medium">{file.name}</span>
-                      
-                      {isDirty && !isActive && (
-                        <div className="w-1.5 h-1.5 rounded-full bg-primary/60 shrink-0" />
+                      {isActive && (
+                        <motion.div
+                          layoutId="activeTab"
+                          className="absolute bottom-0 left-0 right-0 h-[2px] bg-primary"
+                          transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                        />
                       )}
-                      
-                      <button 
+                      <FileCode2 size={13} className={`shrink-0 ${isActive ? 'text-primary' : 'text-text/25'}`} />
+                      <span className="truncate flex-1 font-medium">{file.name}</span>
+
+                      {isDirty && !isActive && (
+                        <div className="w-1.5 h-1.5 rounded-full bg-primary/50 shrink-0" />
+                      )}
+
+                      <button
                         onClick={(e) => fileHook.closeTab(e, tabId)}
-                        className={`p-1 rounded-md shrink-0 transition-opacity ${
-                          isActive 
-                            ? 'opacity-100 hover:bg-primary/20 text-primary/70 hover:text-primary' 
-                            : 'opacity-0 group-hover:opacity-100 hover:bg-white/10 text-text/40 hover:text-text'
+                        className={`p-0.5 rounded shrink-0 transition-opacity ${
+                          isActive
+                            ? 'opacity-60 hover:opacity-100 hover:bg-white/10 text-text/50'
+                            : 'opacity-0 group-hover:opacity-60 hover:bg-white/10 text-text/30'
                         }`}
                       >
-                        <X size={14} />
+                        <X size={12} />
                       </button>
                     </div>
                   );
                 })}
               </div>
-              
-              <div className="flex items-center pr-3 gap-1 shrink-0 border-l border-white/10 h-full bg-background/40">
-                <button 
+
+              <div className="flex items-center px-2 gap-1 shrink-0 border-l border-white/[0.04]">
+                <button
                   onClick={() => setIsPreviewOpen(!isPreviewOpen)}
-                  className={`p-2 transition-colors rounded-md cursor-pointer ${isPreviewOpen ? 'text-primary bg-primary/10' : 'text-text/50 hover:text-text'}`}
-                  title="Toggle Live Preview"
+                  className={`p-2 transition-all rounded-lg cursor-pointer ${isPreviewOpen ? 'text-primary bg-primary/10' : 'text-text/30 hover:text-text/60 hover:bg-white/[0.04]'}`}
+                  title="Toggle Preview"
                 >
-                  <Globe size={18} />
+                  <Globe size={15} />
                 </button>
-                <button 
+                <button
                   onClick={() => setRightPanelOpen(!rightPanelOpen)}
-                  className="p-2 text-text/50 hover:text-text transition-colors cursor-pointer"
-                  title="Toggle AI Assistant (Ctrl+Shift+B)"
+                  className="p-2 text-text/30 hover:text-text/60 hover:bg-white/[0.04] transition-all rounded-lg cursor-pointer"
+                  title="Toggle AI"
                 >
-                  {rightPanelOpen ? <PanelRightClose size={18} /> : <PanelRightOpen size={18} />}
+                  {rightPanelOpen ? <PanelRightClose size={15} /> : <PanelRightOpen size={15} />}
                 </button>
               </div>
             </div>
 
-            {/* Editor Area */}
-            <div className="flex-1 overflow-hidden relative flex flex-col bg-background/20">
+            {/* Editor Content */}
+            <div className="flex-1 overflow-hidden relative flex flex-col">
               {fileHook.activeFile && (
-                <Breadcrumbs 
-                  path={fileHook.activeFile.name} 
-                  onNavigate={undefined} // Future: Allow folder navigation
+                <Breadcrumbs
+                  path={fileHook.activeFile.name}
+                  onNavigate={undefined}
                 />
               )}
-              
+
               {fileHook.activeFile ? (
                 <>
-                  {/* AI Quick Actions Bar */}
-                  <div className="flex items-center gap-3 px-5 py-2 border-b border-white/5 shrink-0 overflow-x-auto no-scrollbar bg-background/20">
-                    <div className="flex items-center gap-2 mr-2">
-                       <span className="text-[10px] text-text/40 font-bold uppercase tracking-[0.2em]">AI Intelligence</span>
-                       {chatHook.isGenerating && (
-                         <motion.div 
-                          animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
-                          transition={{ repeat: Infinity, duration: 2 }}
-                          className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(59,130,246,0.5)]" 
-                         />
-                       )}
-                    </div>
-                    
-                    <button 
+                  {/* AI Quick Actions — contextual, subtle */}
+                  <div className="flex items-center gap-2 px-4 py-1.5 border-b border-white/[0.04] shrink-0">
+                    <span className="text-[9px] text-text/20 font-semibold uppercase tracking-[0.2em] mr-1">AI</span>
+                    {chatHook.isGenerating && (
+                      <div className="w-1 h-1 rounded-full bg-primary pulse-ring" />
+                    )}
+
+                    <button
                       disabled={chatHook.isGenerating}
-                      onClick={() => chatHook.handleQuickAction('explain')} 
-                      className="glass-button flex items-center gap-1.5 px-3 py-1.5 text-xs text-primary/80 rounded-full whitespace-nowrap disabled:opacity-30"
+                      onClick={() => chatHook.handleQuickAction('explain')}
+                      className="flex items-center gap-1 px-2.5 py-1 text-[10px] text-text/30 hover:text-text/60 hover:bg-white/[0.04] rounded-md transition-all disabled:opacity-20 cursor-pointer"
                     >
-                      <Lightbulb size={12} /> {fileHook.selectedCode ? 'Explain Selection' : 'Explain Code'}
+                      <Lightbulb size={10} /> Explain
                     </button>
-                    <button 
+                    <button
                       disabled={chatHook.isGenerating}
-                      onClick={() => chatHook.handleQuickAction('bugs')} 
-                      className="glass-button flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-400/80 rounded-full whitespace-nowrap disabled:opacity-30"
+                      onClick={() => chatHook.handleQuickAction('bugs')}
+                      className="flex items-center gap-1 px-2.5 py-1 text-[10px] text-text/30 hover:text-red-400/60 hover:bg-red-500/[0.04] rounded-md transition-all disabled:opacity-20 cursor-pointer"
                     >
-                      <Bug size={12} /> {fileHook.selectedCode ? 'Find Bugs' : 'Find Bugs'}
+                      <Bug size={10} /> Bugs
                     </button>
-                    <button 
+                    <button
                       disabled={chatHook.isGenerating}
-                      onClick={() => chatHook.handleQuickAction('refactor')} 
-                      className="glass-button flex items-center gap-1.5 px-3 py-1.5 text-xs text-emerald-400/80 rounded-full whitespace-nowrap disabled:opacity-30"
+                      onClick={() => chatHook.handleQuickAction('refactor')}
+                      className="flex items-center gap-1 px-2.5 py-1 text-[10px] text-text/30 hover:text-emerald-400/60 hover:bg-emerald-500/[0.04] rounded-md transition-all disabled:opacity-20 cursor-pointer"
                     >
-                      <Sparkles size={12} /> {fileHook.selectedCode ? 'Refactor' : 'Refactor'}
+                      <Sparkles size={10} /> Refactor
                     </button>
                   </div>
 
-                  {/* CodeMirror Editor */}
-                  <div className="flex-1 overflow-auto text-[15px]">
+                  {/* CodeMirror */}
+                  <div className="flex-1 overflow-auto text-[14px]">
                     <CodeMirror
                       value={fileHook.activeFile.content}
                       height="100%"
@@ -495,54 +495,69 @@ export default function App() {
                   </div>
                 </>
               ) : (
-                <div className="flex-1 flex flex-col items-center justify-center text-white/30">
+                <div className="flex-1 flex flex-col items-center justify-center">
                   {fileHook.files.length === 0 ? (
                     isScaffolding ? (
                       <div className="flex flex-col items-center">
-                        <Loader2 size={48} className="mb-6 animate-spin text-cyan-400" />
-                        <p className="text-lg text-white font-light text-center">
-                          Scaffolding Environment...<br/>
-                          <span className="text-xs text-white/50">Downloading packages and setting up build tools.</span>
+                        <Loader2 size={40} className="mb-5 animate-spin text-primary" />
+                        <p className="text-sm text-text/50 font-medium text-center">
+                          Setting up environment...
                         </p>
+                        <p className="text-xs text-text/25 mt-1">Installing packages</p>
                       </div>
                     ) : (
-                      <>
-                        <Code2 size={64} className="mb-6 text-cyan-500 opacity-80" />
-                        <p className="text-xl font-light text-white mb-8">Start an empty project or choose a framework</p>
-                        <div className="flex gap-4">
-                          <button onClick={() => handleSelectTemplate('npx -y create-vite@latest ./ --template react && npm install')} className="glass-panel px-6 py-4 rounded-xl hover:bg-white/10 transition-colors flex flex-col items-center gap-2">
-                            <span className="text-lg text-cyan-400 font-semibold">React (Vite)</span>
-                            <span className="text-xs text-white/50">Lightning fast HMR</span>
+                      <div className="flex flex-col items-center">
+                        <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.04] mb-6">
+                          <Code2 size={40} className="text-primary/40" />
+                        </div>
+                        <p className="text-sm font-medium text-text/50 mb-1">Start building</p>
+                        <p className="text-xs text-text/25 mb-8">Choose a framework or start from scratch</p>
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => handleSelectTemplate('npx -y create-vite@latest temp-app --template react-ts && cp -r temp-app/. ./ && rm -rf temp-app && npm install')}
+                            className="glass-panel px-5 py-3.5 rounded-xl hover:bg-white/[0.06] transition-all flex flex-col items-center gap-1.5 cursor-pointer group"
+                          >
+                            <span className="text-sm text-primary font-semibold group-hover:text-primary/80">React</span>
+                            <span className="text-[10px] text-text/25">Vite + HMR</span>
                           </button>
-                          <button onClick={() => handleSelectTemplate('npx -y create-next-app@latest ./ --ts --tailwind --eslint --app --use-npm --src-dir')} className="glass-panel px-6 py-4 rounded-xl hover:bg-white/10 transition-colors flex flex-col items-center gap-2">
-                            <span className="text-lg text-white font-semibold">Next.js</span>
-                            <span className="text-xs text-white/50">Full-stack framework</span>
+                          <button
+                            onClick={() => handleSelectTemplate('npx -y create-next-app@latest temp-app --ts --tailwind --eslint --app --use-npm --src-dir && cp -r temp-app/. ./ && rm -rf temp-app')}
+                            className="glass-panel px-5 py-3.5 rounded-xl hover:bg-white/[0.06] transition-all flex flex-col items-center gap-1.5 cursor-pointer group"
+                          >
+                            <span className="text-sm text-text/70 font-semibold group-hover:text-text/90">Next.js</span>
+                            <span className="text-[10px] text-text/25">Full-stack</span>
                           </button>
-                          <button onClick={() => handleSelectTemplate('npm init -y && echo "console.log(\'Hello World\');" > index.js && echo "node_modules\\n.git" > .gitignore')} className="glass-panel px-6 py-4 rounded-xl hover:bg-white/10 transition-colors flex flex-col items-center gap-2">
-                            <span className="text-lg text-emerald-400 font-semibold">Vanilla Node</span>
-                            <span className="text-xs text-white/50">Blank Node environment</span>
+                          <button
+                            onClick={() => handleSelectTemplate('npm init -y && echo "console.log(\'Hello World\');" > index.js && echo "node_modules\\n.git" > .gitignore')}
+                            className="glass-panel px-5 py-3.5 rounded-xl hover:bg-white/[0.06] transition-all flex flex-col items-center gap-1.5 cursor-pointer group"
+                          >
+                            <span className="text-sm text-emerald-400 font-semibold group-hover:text-emerald-400/80">Node.js</span>
+                            <span className="text-[10px] text-text/25">Blank</span>
                           </button>
                         </div>
-                      </>
+                      </div>
                     )
                   ) : (
-                    <>
-                      <Code2 size={64} className="mb-6 opacity-20" />
-                      <p className="text-lg font-light">Select a file to start coding</p>
-                      <button 
+                    <div className="flex flex-col items-center">
+                      <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.04] mb-5">
+                        <Code2 size={36} className="text-text/15" />
+                      </div>
+                      <p className="text-sm text-text/35 font-medium">Select a file to edit</p>
+                      <button
                         onClick={() => fileHook.setIsCreatingFile(true)}
-                        className="mt-6 glass-button px-6 py-2.5 text-white rounded-full transition-colors text-sm"
+                        className="mt-4 flex items-center gap-2 px-4 py-2 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/15 rounded-xl transition-all border border-primary/15 cursor-pointer"
                       >
-                        Create New File
+                        <Plus size={13} />
+                        New File
                       </button>
-                    </>
+                    </div>
                   )}
                 </div>
               )}
             </div>
 
-            {/* Preview Panel */}
-            <Suspense fallback={<div className="h-full w-full flex items-center justify-center backdrop-blur-xl"><Loader2 className="animate-spin text-primary" size={48} /></div>}>
+            {/* Preview */}
+            <Suspense fallback={<div className="h-full w-full flex items-center justify-center"><Loader2 className="animate-spin text-primary" size={32} /></div>}>
               <AnimatePresence>
                 {isPreviewOpen && (
                   <PreviewPanel
@@ -555,7 +570,7 @@ export default function App() {
               )}
             </Suspense>
 
-            {/* Terminal Panel */}
+            {/* Terminal */}
             <AnimatePresence>
               {fileHook.isTerminalOpen && (
                 <TerminalPanel
@@ -565,7 +580,7 @@ export default function App() {
             </AnimatePresence>
           </section>
 
-          {/* --- Right Sidebar (AI Assistant) --- */}
+          {/* Right Panel (AI Chat) */}
           <AnimatePresence initial={false}>
             {rightPanelOpen && (
               <ChatPanel
@@ -587,6 +602,7 @@ export default function App() {
                 onSendMessage={handleSend}
                 onSendAgentMessage={agentHook.sendAgentMessage}
                 onQuickAction={chatHook.handleQuickAction}
+                onClearChat={() => chatHook.setChatMessages([])}
                 files={fileHook.files}
               />
             )}
@@ -598,8 +614,8 @@ export default function App() {
       <AnimatePresence>
         {tabContextMenu && (
           <>
-            <div 
-              className="fixed inset-0 z-[60]" 
+            <div
+              className="fixed inset-0 z-[60]"
               onClick={() => setTabContextMenu(null)}
               onContextMenu={(e) => { e.preventDefault(); setTabContextMenu(null); }}
             />
@@ -608,7 +624,7 @@ export default function App() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.1 }}
-              className="fixed z-[70] bg-secondary/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl py-1.5 min-w-[180px] overflow-hidden"
+              className="fixed z-[70] bg-secondary/95 backdrop-blur-xl border border-white/[0.08] rounded-xl shadow-2xl py-1 min-w-[160px]"
               style={{ left: tabContextMenu.x, top: tabContextMenu.y }}
             >
               <button
@@ -616,26 +632,27 @@ export default function App() {
                   fileHook.closeOtherTabs(tabContextMenu.id);
                   setTabContextMenu(null);
                 }}
-                className="w-full flex items-center gap-3 px-4 py-2 text-sm text-text/80 hover:bg-primary/20 hover:text-text transition-colors text-left cursor-pointer"
+                className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[12px] text-text/60 hover:bg-white/[0.06] hover:text-text transition-colors text-left cursor-pointer"
               >
-                <X size={14} className="text-text/40" />
-                <span>Close Others</span>
+                <X size={12} className="text-text/30" />
+                Close Others
               </button>
               <button
                 onClick={() => {
                   fileHook.closeAllTabs();
                   setTabContextMenu(null);
                 }}
-                className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-400 hover:bg-red-500/15 transition-colors text-left cursor-pointer"
+                className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[12px] text-red-400/80 hover:bg-red-500/10 transition-colors text-left cursor-pointer"
               >
-                <Trash2 size={14} />
-                <span>Close All Tabs</span>
+                <Trash2 size={12} />
+                Close All
               </button>
             </motion.div>
           </>
         )}
       </AnimatePresence>
 
+      {/* Modals */}
       <Suspense fallback={null}>
         <AnimatePresence>
           {isSettingsOpen && (
@@ -657,7 +674,7 @@ export default function App() {
               onOpenSettings={() => setIsSettingsOpen(true)}
               onClearChat={() => {
                 if (confirm('Clear chat history?')) {
-                   chatHook.setChatMessages([]);
+                  chatHook.setChatMessages([]);
                 }
               }}
             />

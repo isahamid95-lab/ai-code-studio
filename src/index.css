@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
 
 @custom-variant dark (&:is(.dark *));
@@ -19,134 +18,37 @@
   --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
   --shadow-lg: 0 10px 15px rgba(0,0,0,0.1);
   --shadow-xl: 0 20px 25px rgba(0,0,0,0.15);
-
-  --space-xs: 0.25rem; /* 4px */
-  --space-sm: 0.5rem;  /* 8px */
-  --space-md: 1rem;    /* 16px */
-  --space-lg: 1.5rem;  /* 24px */
-  --space-xl: 2rem;    /* 32px */
-  --space-2xl: 3rem;   /* 48px */
-  --space-3xl: 4rem;   /* 64px */
 }
 
 /* Glassmorphism Utilities */
 @layer utilities {
   .glass-panel {
-    @apply bg-background/40 backdrop-blur-2xl border border-white/10 transition-all duration-300;
-    box-shadow: var(--shadow-lg);
+    @apply bg-background/40 backdrop-blur-2xl border border-white/[0.06] transition-all duration-300;
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,0.03) inset,
+      0 8px 32px rgba(0,0,0,0.3);
   }
 
   .glass-button {
-    @apply bg-white/5 hover:bg-white/15 border border-white/10 backdrop-blur-md transition-all duration-300 cursor-pointer;
+    @apply bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] backdrop-blur-md transition-all duration-200 cursor-pointer;
     box-shadow: var(--shadow-sm);
   }
 
   .glass-button:hover {
-    box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);
-    transform: translateY(-1px);
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.15);
   }
 
   .glass-input {
-    @apply bg-background/40 text-text placeholder-white/30 border border-white/10 outline-none transition-all rounded-lg;
+    @apply bg-white/[0.04] text-text placeholder-white/25 border border-white/[0.08] outline-none transition-all rounded-xl;
   }
 
   .glass-input:focus {
-    @apply border-primary/50;
-    box-shadow: 0 0 15px rgba(59, 130, 246, 0.15);
+    @apply border-primary/40;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   }
 }
 
-/* Custom Scrollbar for Dark Theme */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-/* Hide scrollbar for specific elements but allow scrolling */
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-/* CodeMirror Overrides for Glassmorphism */
-.cm-editor {
-  background-color: transparent !important;
-  height: 100%;
-}
-
-.cm-scroller {
-  font-family: var(--font-mono) !important;
-}
-
-.cm-gutters {
-  background-color: rgba(0, 0, 0, 0.2) !important;
-  border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
-  color: rgba(255, 255, 255, 0.3) !important;
-}
-
-.cm-activeLineGutter {
-  background-color: rgba(255, 255, 255, 0.05) !important;
-  color: rgba(0, 240, 255, 0.8) !important;
-}
-
-.cm-activeLine {
-  background-color: rgba(255, 255, 255, 0.03) !important;
-}
-
-.cm-selectionBackground {
-  background-color: rgba(0, 240, 255, 0.2) !important;
-}
-
-/* Markdown Styling */
-.markdown-body {
-  font-size: 14px;
-  line-height: 1.6;
-}
-
-.markdown-body p {
-  margin-bottom: 1em;
-}
-
-.markdown-body pre {
-  background-color: rgba(0, 0, 0, 0.4) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  padding: 12px;
-  overflow-x: auto;
-  margin: 1em 0;
-}
-
-.markdown-body code {
-  font-family: var(--font-mono);
-  background-color: rgba(0, 0, 0, 0.3);
-  padding: 2px 4px;
-  border-radius: 4px;
-  font-size: 0.9em;
-}
-
-.markdown-body pre code {
-  background-color: transparent;
-  padding: 0;
-}
-
-/* Professional Scrollbar */
+/* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -157,145 +59,181 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
   border-radius: 10px;
-  border: 4px solid transparent;
-  background-clip: content-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.1);
-  background-clip: content-box;
+  background: rgba(255, 255, 255, 0.12);
 }
 
-.liquid-glass {
-  background: rgba(15, 23, 42, 0.6);
-  backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 
-    0 4px 6px -1px rgba(0, 0, 0, 0.1),
-    0 2px 4px -1px rgba(0, 0, 0, 0.06),
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
-@theme inline {
-  --font-heading: var(--font-sans);
-  --font-sans: 'Geist Variable', sans-serif;
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --color-foreground: var(--foreground);
-  --color-background: var(--background);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+/* CodeMirror Overrides */
+.cm-editor {
+  background-color: transparent !important;
+  height: 100%;
 }
 
-:root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+.cm-scroller {
+  font-family: var(--font-mono) !important;
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+.cm-gutters {
+  background-color: rgba(0, 0, 0, 0.15) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.04) !important;
+  color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.cm-activeLineGutter {
+  background-color: rgba(59, 130, 246, 0.08) !important;
+  color: rgba(59, 130, 246, 0.8) !important;
+}
+
+.cm-activeLine {
+  background-color: rgba(255, 255, 255, 0.02) !important;
+}
+
+.cm-selectionBackground {
+  background-color: rgba(59, 130, 246, 0.2) !important;
+}
+
+/* Markdown from Chat */
+.markdown-body {
+  font-size: 13.5px;
+  line-height: 1.7;
+  letter-spacing: -0.01em;
+}
+
+.markdown-body p {
+  margin-bottom: 0.75em;
+}
+
+.markdown-body p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-body pre {
+  background-color: rgba(0, 0, 0, 0.35) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  margin: 0.75em 0;
+  font-size: 12.5px;
+}
+
+.markdown-body code {
+  font-family: var(--font-mono);
+  background-color: rgba(255, 255, 255, 0.06);
+  padding: 2px 6px;
+  border-radius: 5px;
+  font-size: 0.88em;
+}
+
+.markdown-body pre code {
+  background-color: transparent;
+  padding: 0;
+}
+
+.markdown-body ul, .markdown-body ol {
+  padding-left: 1.25em;
+  margin: 0.5em 0;
+}
+
+.markdown-body li {
+  margin-bottom: 0.25em;
+}
+
+.markdown-body h1, .markdown-body h2, .markdown-body h3 {
+  font-weight: 600;
+  margin: 1em 0 0.5em;
+  letter-spacing: -0.02em;
+}
+
+.markdown-body strong {
+  font-weight: 600;
+  color: rgba(255,255,255,0.95);
+}
+
+/* Typing Animation for AI Responses */
+@keyframes blink-caret {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.typing-cursor::after {
+  content: '▋';
+  animation: blink-caret 0.8s ease-in-out infinite;
+  color: var(--color-primary);
+  font-size: 14px;
+  margin-left: 1px;
+}
+
+/* Pulse Ring Animation */
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); opacity: 0.5; }
+  50% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.8); opacity: 0.5; }
+}
+
+.pulse-ring {
+  animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Panel resize handle */
+.resize-handle {
+  @apply w-1 cursor-col-resize transition-colors duration-150;
+  background: transparent;
+}
+
+.resize-handle:hover,
+.resize-handle:active {
+  background: rgba(59, 130, 246, 0.3);
+}
+
+/* Activity bar icon styles */
+.activity-icon {
+  @apply relative flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200 cursor-pointer;
+}
+
+.activity-icon:hover {
+  @apply bg-white/[0.06];
+}
+
+.activity-icon.active {
+  @apply bg-primary/10 text-primary;
+}
+
+.activity-icon.active::before {
+  content: '';
+  @apply absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-5 bg-primary rounded-r-full;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-white/[0.06];
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-text;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   html {
     @apply font-sans;

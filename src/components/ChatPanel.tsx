@@ -4,7 +4,8 @@ import { FileMentionsPopup } from './FileMentionsPopup';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Sparkles, Send, Loader2, MoreVertical, Lightbulb,
-  TerminalSquare, FileCode2, CheckCircle2, Zap, FolderOpen
+  TerminalSquare, FileCode2, CheckCircle2, Zap, FolderOpen,
+  Bot, User, BrainCircuit, ClipboardList, Trash2, ShieldCheck, AlertTriangle
 } from 'lucide-react';
 import type { ChatMessage, FileItem } from '../types';
 
@@ -28,30 +29,29 @@ interface ChatPanelProps {
   onSendMessage: (text: string) => void;
   onSendAgentMessage: (text: string, mode: 'agent' | 'plan') => void;
   onQuickAction: (action: 'explain' | 'bugs' | 'refactor') => void;
+  onClearChat: () => void;
 }
 
-// File icon color by extension
 function getFileColor(filename: string): string {
   if (filename.endsWith('.html')) return 'text-orange-400';
   if (filename.endsWith('.css') || filename.endsWith('.scss')) return 'text-blue-400';
   if (filename.endsWith('.js') || filename.endsWith('.jsx')) return 'text-yellow-400';
-  if (filename.endsWith('.ts') || filename.endsWith('.tsx')) return 'text-blue-300';
-  if (filename.endsWith('.json')) return 'text-green-400';
-  if (filename.endsWith('.md')) return 'text-white/60';
+  if (filename.endsWith('.ts') || filename.endsWith('.tsx')) return 'text-cyan-400';
+  if (filename.endsWith('.json')) return 'text-emerald-400';
+  if (filename.endsWith('.md')) return 'text-white/50';
   if (filename.endsWith('.svg') || filename.endsWith('.png')) return 'text-pink-400';
-  return 'text-cyan-400';
+  return 'text-primary';
 }
 
 function getFileBgColor(filename: string): string {
-  if (filename.endsWith('.html')) return 'from-orange-500/20 to-red-500/10 border-orange-500/30';
-  if (filename.endsWith('.css') || filename.endsWith('.scss')) return 'from-blue-500/20 to-indigo-500/10 border-blue-500/30';
-  if (filename.endsWith('.js') || filename.endsWith('.jsx')) return 'from-yellow-500/20 to-amber-500/10 border-yellow-500/30';
-  if (filename.endsWith('.ts') || filename.endsWith('.tsx')) return 'from-blue-400/20 to-cyan-500/10 border-blue-400/30';
-  if (filename.endsWith('.json')) return 'from-green-500/20 to-emerald-500/10 border-green-500/30';
-  return 'from-cyan-500/20 to-purple-500/10 border-cyan-500/30';
+  if (filename.endsWith('.html')) return 'from-orange-500/15 to-orange-500/5 border-orange-500/20';
+  if (filename.endsWith('.css') || filename.endsWith('.scss')) return 'from-blue-500/15 to-blue-500/5 border-blue-500/20';
+  if (filename.endsWith('.js') || filename.endsWith('.jsx')) return 'from-yellow-500/15 to-yellow-500/5 border-yellow-500/20';
+  if (filename.endsWith('.ts') || filename.endsWith('.tsx')) return 'from-cyan-500/15 to-cyan-500/5 border-cyan-500/20';
+  if (filename.endsWith('.json')) return 'from-emerald-500/15 to-emerald-500/5 border-emerald-500/20';
+  return 'from-primary/15 to-primary/5 border-primary/20';
 }
 
-// Parse message text to separate regular text from file creation markers
 function parseMessageContent(text: string): Array<{ type: 'text' | 'file'; content: string; filename?: string }> {
   const parts: Array<{ type: 'text' | 'file'; content: string; filename?: string }> = [];
   const fileRegex = /\n?\n?✅ \*\*(.+?)\*\* oluşturuldu/g;
@@ -59,7 +59,6 @@ function parseMessageContent(text: string): Array<{ type: 'text' | 'file'; conte
   let match;
 
   while ((match = fileRegex.exec(text)) !== null) {
-    // Add text before this match
     if (match.index > lastIndex) {
       const textBefore = text.slice(lastIndex, match.index).trim();
       if (textBefore) parts.push({ type: 'text', content: textBefore });
@@ -68,7 +67,6 @@ function parseMessageContent(text: string): Array<{ type: 'text' | 'file'; conte
     lastIndex = match.index + match[0].length;
   }
 
-  // Add remaining text
   if (lastIndex < text.length) {
     const remaining = text.slice(lastIndex).trim();
     if (remaining) parts.push({ type: 'text', content: remaining });
@@ -80,6 +78,7 @@ function parseMessageContent(text: string): Array<{ type: 'text' | 'file'; conte
 
   return parts;
 }
+
 const ChatPanel = React.memo(function ChatPanel({
   chatMessages,
   chatInput,
@@ -99,6 +98,7 @@ const ChatPanel = React.memo(function ChatPanel({
   onSendMessage,
   onSendAgentMessage,
   onQuickAction,
+  onClearChat,
   files,
 }: ChatPanelProps) {
   const [mentionQuery, setMentionQuery] = React.useState('');
@@ -110,16 +110,14 @@ const ChatPanel = React.memo(function ChatPanel({
     const value = e.target.value;
     onSetChatInput(value);
 
-    // Detect @ for mentions
     const cursor = e.target.selectionStart;
     const lastAt = value.lastIndexOf('@', cursor - 1);
-    
+
     if (lastAt !== -1 && lastAt >= (value.lastIndexOf(' ', cursor - 1) + 1)) {
       const query = value.slice(lastAt + 1, cursor);
       if (!query.includes(' ')) {
         setMentionQuery(query);
         setIsMentionPopupOpen(true);
-        // Position is approximate
         setMentionPosition({ top: 40, left: Math.min(cursor * 7, 200) });
       } else {
         setIsMentionPopupOpen(false);
@@ -152,104 +150,129 @@ const ChatPanel = React.memo(function ChatPanel({
     }
   };
 
+  const currentMode = agentMode ? 'agent' : planMode ? 'plan' : 'chat';
+
   return (
-    <motion.aside 
+    <motion.aside
       initial={{ width: 0, opacity: 0 }}
-      animate={{ width: 420, opacity: 1 }}
+      animate={{ width: 380, opacity: 1 }}
       exit={{ width: 0, opacity: 0 }}
-      transition={{ duration: 0.2 }}
+      transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
       className="glass-panel rounded-2xl flex flex-col overflow-hidden shrink-0"
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 bg-background/40">
-        <div className="flex items-center gap-3">
-          <div className={`p-1.5 rounded-lg border ${
-            agentMode ? 'bg-primary/20 border-primary/30' : 
-            planMode ? 'bg-cta/20 border-cta/30' :
-            'bg-primary/20 border-primary/30'
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
+        <div className="flex items-center gap-2.5">
+          <div className={`p-1.5 rounded-lg ${
+            currentMode === 'agent' ? 'bg-primary/15 text-primary' :
+            currentMode === 'plan' ? 'bg-amber-500/15 text-amber-400' :
+            'bg-primary/15 text-primary'
           }`}>
-            {agentMode ? <Zap size={16} className="text-primary" /> :
-             planMode ? <FolderOpen size={16} className="text-cta" /> :
-             <Sparkles size={16} className="text-primary" />}
+            {currentMode === 'agent' ? <Zap size={15} /> :
+             currentMode === 'plan' ? <ClipboardList size={15} /> :
+             <BrainCircuit size={15} />}
           </div>
           <div>
-            <span className="text-sm font-semibold text-text tracking-wide block">
-              {agentMode ? 'AI Agent' : planMode ? 'Plan Mode' : 
-               'AI Assistant'}
+            <span className="text-[13px] font-semibold text-text block leading-tight">
+              {currentMode === 'agent' ? 'AI Agent' : currentMode === 'plan' ? 'Plan Mode' : 'AI Assistant'}
             </span>
-            {agentMode && (
-              <span className="text-[10px] text-primary/70 font-medium">Full-stack kodlama</span>
-            )}
+            <span className="text-[10px] text-text/30 leading-tight">
+              {currentMode === 'agent' ? 'Full-stack coding' :
+               currentMode === 'plan' ? 'Architecture first' :
+               alibabaModel || 'Qwen'}
+            </span>
           </div>
         </div>
-        <button className="text-text/50 hover:text-text cursor-pointer transition-colors"><MoreVertical size={16} /></button>
+        <div className="flex items-center gap-1">
+          {isGenerating && (
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-primary/10 border border-primary/15"
+            >
+              <div className="w-1.5 h-1.5 rounded-full bg-primary pulse-ring" />
+              <span className="text-[10px] text-primary font-medium">Working</span>
+            </motion.div>
+          )}
+          <button 
+            onClick={onClearChat}
+            className="p-1.5 text-text/30 hover:text-red-400 hover:bg-white/[0.04] rounded-lg cursor-pointer transition-all"
+            title="Clear Chat"
+          >
+            <Trash2 size={13} className="lucide lucide-trash-2" />
+          </button>
+          <button className="p-1.5 text-text/30 hover:text-text/60 hover:bg-white/[0.04] rounded-lg cursor-pointer transition-all" title="More Options">
+            <MoreVertical size={13} />
+          </button>
+        </div>
       </div>
-      
+
       {/* Chat Messages */}
-      <div className="flex-1 overflow-y-auto p-5 space-y-5">
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         <AnimatePresence initial={false}>
           {chatMessages.filter(m => !m.isHidden).map((msg) => {
             const parts = msg.role === 'model' ? parseMessageContent(msg.text) : null;
-            
+
             return (
-              <motion.div 
-                key={msg.id} 
-                initial={{ opacity: 0, y: 10 }}
+              <motion.div
+                key={msg.id}
+                initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.2 }}
-                className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
+                transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                className={`flex gap-2.5 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
               >
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-lg ${
-                  msg.role === 'user' ? 'bg-primary text-white' : 'bg-gradient-to-br from-primary to-cta text-white transition-all duration-300'
+                {/* Avatar */}
+                <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                  msg.role === 'user'
+                    ? 'bg-white/[0.08] text-text/60'
+                    : 'bg-primary/15 text-primary'
                 }`}>
-                  {msg.role === 'user' ? 'U' : <Sparkles size={14} />}
+                  {msg.role === 'user' ? <User size={13} /> : <Bot size={13} />}
                 </div>
+
+                {/* Content */}
                 <div className={`flex-1 min-w-0 ${msg.role === 'user' ? 'text-right' : ''}`}>
-                  <div className="text-xs text-text/40 mb-1.5 font-medium uppercase tracking-wider">
-                    {msg.role === 'user' ? 'You' : alibabaModel || 'Qwen'}
-                  </div>
-                  
                   {msg.role === 'user' ? (
-                    <div className="bg-white/10 backdrop-blur-md border border-white/10 inline-block px-4 py-2.5 rounded-2xl rounded-tr-sm text-left shadow-lg text-[14px] leading-relaxed">
+                    <div className="bg-white/[0.06] inline-block px-3.5 py-2.5 rounded-2xl rounded-tr-md text-left text-[13px] leading-relaxed text-text/90 max-w-[90%]">
                       {msg.displayText || msg.text}
                     </div>
                   ) : parts ? (
-                    <div className="space-y-2.5">
+                    <div className="space-y-2">
                       {parts.map((part, i) => (
                         part.type === 'file' && part.filename ? (
                           <motion.div
                             key={`${msg.id}-file-${i}`}
-                            initial={{ opacity: 0, scale: 0.9, x: -20 }}
-                            animate={{ opacity: 1, scale: 1, x: 0 }}
-                            transition={{ duration: 0.35, ease: 'easeOut', delay: 0.05 * i }}
-                            className={`flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r border backdrop-blur-md ${getFileBgColor(part.filename)}`}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ duration: 0.3, delay: 0.05 * i }}
+                            className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-gradient-to-r border ${getFileBgColor(part.filename)}`}
                           >
-                            <div className={`p-1.5 rounded-lg bg-black/30 ${getFileColor(part.filename)}`}>
-                              <FileCode2 size={16} />
+                            <div className={`p-1 rounded-md bg-black/20 ${getFileColor(part.filename)}`}>
+                              <FileCode2 size={14} />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="text-sm font-medium text-white truncate">{part.filename}</div>
-                              <div className="text-[10px] text-white/40 uppercase tracking-wider mt-0.5">
-                                {part.filename.split('.').pop()?.toUpperCase()} dosyası oluşturuldu
+                              <div className="text-[12.5px] font-medium text-text truncate">{part.filename}</div>
+                              <div className="text-[9px] text-text/30 uppercase tracking-wider mt-0.5">
+                                {part.filename.split('.').pop()?.toUpperCase()} file created
                               </div>
                             </div>
                             <motion.div
                               initial={{ scale: 0 }}
                               animate={{ scale: 1 }}
-                              transition={{ delay: 0.2 + 0.05 * i, type: 'spring', stiffness: 500 }}
+                              transition={{ delay: 0.15 + 0.05 * i, type: 'spring', stiffness: 400 }}
                             >
-                              <CheckCircle2 size={18} className="text-emerald-400" />
+                              <CheckCircle2 size={15} className="text-emerald-400" />
                             </motion.div>
                           </motion.div>
                         ) : (
-                          <div key={`${msg.id}-text-${i}`} className="text-[14px] leading-relaxed text-white/90 markdown-body">
+                          <div key={`${msg.id}-text-${i}`} className="text-[13px] leading-relaxed text-text/85 markdown-body">
                             <Markdown>{part.content}</Markdown>
                           </div>
                         )
                       ))}
                     </div>
                   ) : (
-                    <div className="text-[14px] leading-relaxed text-white/90 markdown-body">
+                    <div className="text-[13px] leading-relaxed text-text/85 markdown-body">
                       <Markdown>{msg.text}</Markdown>
                     </div>
                   )}
@@ -258,32 +281,66 @@ const ChatPanel = React.memo(function ChatPanel({
             );
           })}
         </AnimatePresence>
-        
-        {/* Generating indicator */}
+
+        {/* Generating Indicator */}
         {isGenerating && (
-          <motion.div 
-            initial={{ opacity: 0, y: 10 }}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex gap-3"
+            className="flex gap-2.5"
           >
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-cta flex items-center justify-center shrink-0 shadow-lg">
-              <Sparkles size={14} className="text-white" />
+            <div className="w-7 h-7 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
+              <Bot size={13} className="text-primary" />
             </div>
             <div className="flex-1">
-              <div className="flex items-center text-sm text-text/60 gap-3 bg-secondary/40 backdrop-blur-md px-5 py-3 rounded-xl border border-white/10 shadow-lg">
-                <Loader2 size={14} className="animate-spin text-primary" />
-                <span>
-                  {agentMode ? '🤖 Kod yazılıyor...' : planMode ? '📋 Plan oluşturuluyor...' : '✨ Analiz ediliyor...'}
+              <div className="flex items-center gap-2.5 bg-white/[0.03] px-3.5 py-2.5 rounded-xl border border-white/[0.04]">
+                <div className="flex gap-1">
+                  <motion.div
+                    animate={{ opacity: [0.3, 1, 0.3] }}
+                    transition={{ repeat: Infinity, duration: 1.2, delay: 0 }}
+                    className="w-1.5 h-1.5 rounded-full bg-primary"
+                  />
+                  <motion.div
+                    animate={{ opacity: [0.3, 1, 0.3] }}
+                    transition={{ repeat: Infinity, duration: 1.2, delay: 0.2 }}
+                    className="w-1.5 h-1.5 rounded-full bg-primary"
+                  />
+                  <motion.div
+                    animate={{ opacity: [0.3, 1, 0.3] }}
+                    transition={{ repeat: Infinity, duration: 1.2, delay: 0.4 }}
+                    className="w-1.5 h-1.5 rounded-full bg-primary"
+                  />
+                </div>
+                <span className="text-xs text-text/40">
+                  {currentMode === 'agent' ? 'Generating code...' :
+                   currentMode === 'plan' ? 'Creating plan...' :
+                   'Thinking...'}
                 </span>
               </div>
               {agentStatus && (
                 <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  className="mt-2 text-xs text-primary/80 font-mono flex items-center gap-2 px-3"
+                  initial={{ opacity: 0, height: 0, y: -5 }}
+                  animate={{ opacity: 1, height: 'auto', y: 0 }}
+                  className={`mt-2 text-[10px] font-mono flex items-center gap-2 px-2.5 py-1.5 rounded-md w-fit backdrop-blur-md ${
+                    agentStatus.toLowerCase().match(/(lint|tsc|verify|check)/)
+                      ? 'bg-amber-500/15 text-amber-400 border border-amber-500/20 shadow-[0_0_10px_rgba(245,158,11,0.1)]'
+                      : agentStatus.toLowerCase().includes('error')
+                      ? 'bg-red-500/15 text-red-400 border border-red-500/20 shadow-[0_0_10px_rgba(239,68,68,0.1)]'
+                      : 'bg-primary/5 text-primary/70 border border-primary/10'
+                  }`}
                 >
-                  <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                  {agentStatus}
+                  {agentStatus.toLowerCase().match(/(lint|tsc|verify|check)/) ? (
+                    <ShieldCheck size={12} className="animate-pulse" />
+                  ) : agentStatus.toLowerCase().includes('error') ? (
+                    <AlertTriangle size={12} />
+                  ) : (
+                    <Loader2 size={12} className="animate-spin opacity-70" />
+                  )}
+                  <span className="truncate max-w-[220px]">
+                    {agentStatus.toLowerCase().match(/(lint|tsc|verify|check)/) 
+                      ? '🛡️ Self-Correction Active: ' + agentStatus 
+                      : agentStatus}
+                  </span>
                 </motion.div>
               )}
             </div>
@@ -292,16 +349,16 @@ const ChatPanel = React.memo(function ChatPanel({
         <div ref={chatEndRef} />
       </div>
 
-      {/* Chat Input */}
-      <div className="p-4 border-t border-white/10 bg-black/20">
+      {/* Chat Input Area */}
+      <div className="p-3 border-t border-white/[0.06]">
         {/* Mode Toggles */}
-        <div className="flex gap-2 mb-3">
+        <div className="flex gap-1.5 mb-2.5">
           <button
             onClick={() => { onSetAgentMode(!agentMode); onSetPlanMode(false); }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
               agentMode
-                ? 'bg-primary/20 border-primary/50 text-white shadow-lg shadow-primary/10'
-                : 'bg-white/5 border-white/10 text-text/40 hover:text-text/70'
+                ? 'bg-primary/15 text-primary border border-primary/25'
+                : 'text-text/30 hover:text-text/50 hover:bg-white/[0.04] border border-transparent'
             }`}
           >
             <Zap size={11} />
@@ -309,29 +366,30 @@ const ChatPanel = React.memo(function ChatPanel({
           </button>
           <button
             onClick={() => { onSetPlanMode(!planMode); onSetAgentMode(false); }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
               planMode
-                ? 'bg-cta/20 border-cta/50 text-white shadow-lg shadow-cta/10'
-                : 'bg-white/5 border-white/10 text-text/40 hover:text-text/70'
+                ? 'bg-amber-500/15 text-amber-400 border border-amber-500/25'
+                : 'text-text/30 hover:text-text/50 hover:bg-white/[0.04] border border-transparent'
             }`}
           >
-            <Lightbulb size={11} />
+            <ClipboardList size={11} />
             Plan
           </button>
         </div>
 
-        <div className="relative flex items-end bg-secondary/40 border border-white/10 rounded-2xl focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/50 transition-all shadow-inner">
+        {/* Input */}
+        <div className="relative flex items-end bg-white/[0.03] border border-white/[0.06] rounded-xl focus-within:border-primary/30 focus-within:bg-white/[0.04] transition-all">
           <textarea
             ref={textareaRef}
             value={chatInput}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder={
-              agentMode ? '🤖 Ne inşa etmemi istersiniz?' :
-              planMode ? '📋 Proje detaylarını yazın...' :
-              activeFile ? `Ask about ${activeFile.name}...` : 'Ask AI anything... (Use @ to mention files)'
+              agentMode ? 'What should I build?' :
+              planMode ? 'Describe the project...' :
+              activeFile ? `Ask about ${activeFile.name}...` : 'Ask anything... (@ to mention files)'
             }
-            className="w-full max-h-32 min-h-[48px] bg-transparent text-sm p-3.5 outline-none resize-none text-text placeholder-text/30"
+            className="w-full max-h-28 min-h-[44px] bg-transparent text-[13px] p-3 pr-12 outline-none resize-none text-text placeholder-text/20"
             rows={1}
           />
           <FileMentionsPopup
@@ -344,25 +402,33 @@ const ChatPanel = React.memo(function ChatPanel({
           <button
             onClick={handleSend}
             disabled={!chatInput.trim() || isGenerating}
-            className={`p-2.5 m-1.5 disabled:from-white/10 disabled:to-white/10 text-white disabled:text-text/30 rounded-xl transition-all shrink-0 shadow-lg bg-gradient-to-br cursor-pointer ${
-              agentMode ? 'from-primary to-blue-600 hover:opacity-90' :
-              planMode ? 'from-cta to-pink-600 hover:opacity-90' :
-              'from-primary to-cta hover:opacity-90'
+            className={`absolute right-2 bottom-2 p-2 rounded-lg transition-all cursor-pointer ${
+              chatInput.trim() && !isGenerating
+                ? 'bg-primary text-white hover:bg-primary/80'
+                : 'bg-white/[0.04] text-text/20'
             }`}
           >
-            <Send size={16} />
+            <Send size={14} />
           </button>
         </div>
-        <div className="flex justify-between items-center mt-3 px-1">
-          <span className="text-[10px] text-white/30 uppercase tracking-wider">
-            {agentMode ? 'Agent — gerçek proje oluşturur' : planMode ? 'Plan — önce plan, sonra uygula' : 'AI can make mistakes.'}
+
+        {/* Footer */}
+        <div className="flex justify-between items-center mt-2 px-0.5">
+          <span className="text-[10px] text-text/20">
+            {currentMode === 'agent' ? 'Agent creates real files' :
+             currentMode === 'plan' ? 'Plan first, build next' :
+             'AI can make mistakes'}
           </span>
           <button
             onClick={() => onSetIsTerminalOpen(!isTerminalOpen)}
-            className="text-[11px] text-white/50 hover:text-white flex items-center gap-1.5 transition-colors"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+              isTerminalOpen 
+                ? 'bg-primary/20 text-primary border border-primary/20' 
+                : 'text-text/40 hover:text-text hover:bg-white/[0.04] border border-transparent'
+            }`}
           >
-            <TerminalSquare size={12} />
-            {isTerminalOpen ? 'Hide Terminal' : 'Show Terminal'}
+            <TerminalSquare size={13} />
+            Terminal
           </button>
         </div>
       </div>

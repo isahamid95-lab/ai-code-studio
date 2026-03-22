@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { X, TerminalSquare, Plus, Trash2 } from 'lucide-react';
+import { X, TerminalSquare, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TerminalSession } from './TerminalSession';
 
@@ -32,71 +32,72 @@ const TerminalPanel = React.memo(function TerminalPanel({ onClose }: TerminalPan
   }, [sessions, activeSessionId]);
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ height: 0, opacity: 0 }}
-      animate={{ height: 320, opacity: 1 }}
+      animate={{ height: 280, opacity: 1 }}
       exit={{ height: 0, opacity: 0 }}
-      transition={{ duration: 0.2 }}
-      className="border-t border-white/10 bg-background/80 backdrop-blur-md flex flex-col shrink-0 overflow-hidden"
+      transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+      className="border-t border-white/[0.06] bg-background/60 backdrop-blur-md flex flex-col shrink-0 overflow-hidden"
     >
-      <div className="flex items-center justify-between px-3 py-1.5 border-b border-white/10 bg-background/40 shrink-0">
-        <div className="flex items-center gap-2 flex-1 min-w-0 overflow-x-auto no-scrollbar scroll-smooth">
-          <div className="flex items-center gap-2 text-[10px] font-bold text-text/30 uppercase tracking-[0.2em] px-2 border-r border-white/10 mr-2 shrink-0">
-            <TerminalSquare size={13} />
-            Output
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-white/[0.04] shrink-0">
+        <div className="flex items-center gap-1.5 flex-1 min-w-0 overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-1.5 text-[10px] font-semibold text-text/25 uppercase tracking-[0.15em] px-2 mr-1 shrink-0">
+            <TerminalSquare size={12} />
+            Terminal
           </div>
-          
+
           {sessions.map((session) => (
-            <div 
+            <div
               key={session.id}
               onClick={() => setActiveSessionId(session.id)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-all shrink-0 whitespace-nowrap group ${
-                activeSessionId === session.id 
-                  ? 'bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]' 
-                  : 'text-text/40 hover:text-text/70 border border-transparent'
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium cursor-pointer transition-all shrink-0 group ${
+                activeSessionId === session.id
+                  ? 'bg-white/[0.06] text-text/70'
+                  : 'text-text/30 hover:text-text/50'
               }`}
             >
               <span>{session.name}</span>
               {sessions.length > 1 && (
-                <button 
+                <button
                   onClick={(e) => removeSession(e, session.id)}
-                  className={`p-0.5 rounded hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity ${activeSessionId === session.id ? 'text-primary' : 'text-text/40'}`}
+                  className="p-0.5 rounded opacity-0 group-hover:opacity-60 hover:opacity-100 hover:bg-white/10 transition-all cursor-pointer"
                 >
-                  <X size={10} />
+                  <X size={9} />
                 </button>
               )}
             </div>
           ))}
-          
-          <button 
+
+          <button
             onClick={addSession}
-            className="p-1.5 text-text/30 hover:text-text hover:bg-white/5 rounded-lg transition-colors cursor-pointer shrink-0 ml-1"
-            title="New Terminal Session"
+            className="p-1 text-text/20 hover:text-text/50 hover:bg-white/[0.04] rounded-md transition-all cursor-pointer shrink-0"
+            title="New Terminal"
           >
-            <Plus size={14} />
+            <Plus size={12} />
           </button>
         </div>
-        
-        <div className="flex items-center gap-3 shrink-0 ml-4 border-l border-white/10 pl-4">
-          <button onClick={onClose} className="p-1 text-text/30 hover:text-text cursor-pointer transition-colors" title="Hide Terminal">
-            <X size={14} />
-          </button>
-        </div>
+
+        <button
+          onClick={onClose}
+          className="p-1 text-text/20 hover:text-text/50 cursor-pointer transition-all rounded-md hover:bg-white/[0.04] ml-2"
+          title="Close Terminal"
+        >
+          <X size={13} />
+        </button>
       </div>
-      
-      <div className="flex-1 w-full bg-black/10 overflow-hidden relative">
+
+      <div className="flex-1 w-full overflow-hidden relative">
         <AnimatePresence initial={false}>
           {sessions.map(session => (
-            <TerminalSession 
-              key={session.id} 
-              id={session.id} 
+            <TerminalSession
+              key={session.id}
+              id={session.id}
               isActive={activeSessionId === session.id}
               onReady={() => {}}
             />
           ))}
         </AnimatePresence>
       </div>
-
     </motion.div>
   );
 });

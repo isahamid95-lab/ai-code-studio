@@ -316,12 +316,85 @@ async function startServer() {
     }
   });
 
+  // --- Enhanced Context (RAG) Helpers ---
+  async function getWorkspaceTree(dir: string, relativePath: string = '', depth: number = 0): Promise<string> {
+    if (depth > 5) return '...';
+    let result = '';
+    try {
+      const entries = await fs.readdir(dir, { withFileTypes: true });
+      const sorted = entries.sort((a, b) => {
+        if (a.isDirectory() && !b.isDirectory()) return -1;
+        if (!a.isDirectory() && b.isDirectory()) return 1;
+        return a.name.localeCompare(b.name);
+      });
+      for (const e of sorted) {
+        if (['.git', 'node_modules', 'dist', 'build', '.next'].includes(e.name)) continue;
+        const isDir = e.isDirectory();
+        result += `${'  '.repeat(depth)}${isDir ? '📂' : '📄'} ${e.name}\n`;
+        if (isDir) {
+          result += await getWorkspaceTree(path.join(dir, e.name), path.join(relativePath, e.name), depth + 1);
+        }
+      }
+    } catch (err) {}
+    return result;
+  }
+
+  // --- Persona Detection Helper ---
+  function detectPersona(messages: any[]): string {
+    const allContent = messages.map(m => m.content || '').join(' ').toLowerCase();
+    
+    if (allContent.match(/(ui|ux|design|css|tailwind|frontend|react|component|styling|button|layout)/)) {
+      return "ROLE: FRONTEND_EXPERT. Sıkı bir UI/UX yeteneğine sahipsin. Modern animasyonlar, tailwind css 4, glassmorphism vb. hakimsin.";
+    } else if (allContent.match(/(backend|server|api|database|sql|express|node|auth|security|docker|endpoint)/)) {
+      return "ROLE: BACKEND_EXPERT. Sistem mimarisi, Express, Node.js veritabanları ve performans optimizasyonlarında en iyi yeteneksizsin.";
+    } else if (allContent.match(/(bug|error|fix|debug|crash|fail|hatas)/)) {
+      return "ROLE: DEBUG_EXPERT. Hatayı değil, hatanın kök nedenini bulan sistematik bir problem çözücüsün.";
+    }
+    return "ROLE: FULLSTACK_ORCHESTRATOR. Uygulamayı sıfırdan oluşturma ve mimari planlama konularında en yetkin lidersin.";
+  }
+
+  // --- Memory Helper ---
+  async function getAgentMemory(): Promise<string> {
+    const memoryPath = path.join(WORKSPACE_DIR, '.ai-memory.json');
+    try {
+      const memContent = await fs.readFile(memoryPath, 'utf-8');
+      const memJson = JSON.parse(memContent);
+      if (Object.keys(memJson).length > 0) {
+        let memoryStr = `\n--- 🧠 PERSISTENT AGENT MEMORY ---\nThis is permanent memory from past interactions.\n`;
+        for (const [k, v] of Object.entries(memJson)) {
+          memoryStr += `[${k}]: ${v}\n`;
+        }
+        return memoryStr + `---------------------------------\n`;
+      }
+    } catch (e) {}
+    return '';
+  }
+
   // --- AI Chat Proxy ---
   app.post("/api/chat", async (req, res) => {
     try {
       const { messages, model, stream, ...rest } = req.body;
       const apiKey = process.env.VITE_ALIBABA_API_KEY;
       const baseUrl = process.env.VITE_ALIBABA_BASE_URL || 'https://coding-intl.dashscope.aliyuncs.com/v1';
+
+      // Inject Workspace Context into System Prompt
+      const workspaceTree = await getWorkspaceTree(WORKSPACE_DIR);
+      const persona = detectPersona(messages);
+      const agentMemory = await getAgentMemory();
+
+      const STRICT_CODING_RULES = `\n\nCRITICAL CODING STANDARDS (NO MOCK APPS):\n` +
+        `1. ABSOLUTELY NO HTML/JS MOCKUPS. NEVER generate simple plain HTML files for UI requests.\n` +
+        `2. You MUST construct REAL applications in React/Next.js/Tailwind/TypeScript.\n` +
+        `3. Assume a modern Node.js environment structure (\`src/components/\` etc) and produce modular .tsx code.\n`;
+
+      const contextPrompt = `Workspace Context (Project Structure):\n${workspaceTree || 'Empty Workspace'}\n\n${persona}\n${agentMemory}` + STRICT_CODING_RULES;
+      
+      let enhancedMessages = [...messages];
+      if (enhancedMessages.length > 0 && enhancedMessages[0].role === 'system') {
+        enhancedMessages[0].content += `\n\n${contextPrompt}`;
+      } else {
+        enhancedMessages.unshift({ role: 'system', content: contextPrompt });
+      }
 
       const isStreaming = stream !== false;
 
@@ -331,7 +404,7 @@ async function startServer() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}`
         },
-        body: JSON.stringify({ model, messages, stream: isStreaming, ...rest })
+        body: JSON.stringify({ model, messages: enhancedMessages, stream: isStreaming, ...rest })
       });
 
       if (!response.ok) {
@@ -447,6 +520,21 @@ async function startServer() {
       {
         type: 'function',
         function: {
+          name: 'update_memory',
+          description: 'Save important architectural decisions, user preferences, or context to the persistent Agent Memory.',
+          parameters: {
+            type: 'object',
+            properties: {
+              key: { type: 'string', description: 'What this memory is about (e.g., "UserPreferences", "ArchitectureDesc", "Dependencies")' },
+              content: { type: 'string', description: 'The detailed content to remember across sessions.' }
+            },
+            required: ['key', 'content']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
           name: 'read_file',
           description: 'Read the content of a file',
           parameters: {
@@ -482,9 +570,22 @@ async function startServer() {
     ];
 
     try {
+      const workspaceTree = await getWorkspaceTree(WORKSPACE_DIR);
+      const persona = detectPersona(messages);
+      const agentMemory = await getAgentMemory();
+      const contextPrompt = `Workspace Context (Project Structure):\n${workspaceTree || 'Empty Workspace'}\n\n${persona}\n${agentMemory}\n\n`;
+
       const systemPrompt = {
         role: 'system',
-        content: 'You are an elite enterprise-grade AI cloud development environment, capable of coding any application perfectly akin to Lovable or Bolt. Rather than creating file-by-file primitives, strongly prioritize leveraging CLIs to bootstrap multi-file projects (e.g., npx create-vite, npx create-next-app, npm init -y) to ensure solid functionality. Ensure all terminal commands run with non-interactive flags.'
+        content: contextPrompt + 'You are an elite enterprise-grade AI cloud development environment (similar to Cursor, Lovable, or Bolt).\n\n' +
+        'CRITICAL CODING STANDARDS (NO MOCK APPS):\n' +
+        '1. ABSOLUTELY NO HTML/JS MOCKUPS. NEVER generate simple plain HTML files for UI requests.\n' +
+        '2. You MUST build REAL applications. Use `run_command` to execute `npx create-vite@latest . --template react-ts`, `npm install`, and configure a full React+Tailwind ecosystem.\n' +
+        '3. When the user asks for a feature, use standard Node.js practices (e.g. `npm install package_name`), write `.tsx` modular components, structure a real `src/` folder, and produce production-ready code. Do NOT fake functionality.\n\n' +
+        'CRITICAL SELF-CORRECTION PROTOCOL:\n' +
+        '1. When you create (create_file) or modify (edit_file) any .ts, .tsx, .js, or .jsx file, you MUST immediately use the "run_command" tool to run `npm run lint` or `npx tsc --noEmit` to verify code correctness. Do NOT skip this.\n' +
+        '2. If the check fails, analyze the error and fix it immediately.\n' +
+        '3. If you fail to fix the error after 3 attempts, STOP and report the error to the user honestly.'
       };
       let conversationMessages: any[] = [systemPrompt, ...messages];
 
@@ -497,7 +598,7 @@ async function startServer() {
             model,
             messages: [
               ...conversationMessages,
-              { role: 'system', content: 'Generate a detailed numbered plan. For EACH file specify: filename, purpose, and key contents. ALWAYS separate HTML, CSS, and JavaScript into different files. Never combine everything into a single HTML file. List ALL files that will be created. If the project needs npm packages, include the npm/npx commands you will run.' }
+              { role: 'system', content: 'Generate a detailed numbered plan for building a REAL application. Include exact `run_command` Node.js CLI commands to bootstrap the project (e.g. npx create-vite, npm install). NEVER plan a basic HTML/CSS/JS file structure. Plan a standard modern React/TypeScript/Node project structure inside a `src/` directory. Be explicit on npm packages needed.' }
             ],
             stream: false,
             max_tokens: 1000
@@ -556,6 +657,9 @@ async function startServer() {
                 await fs.writeFile(safeFull, args.content, 'utf-8');
                 send({ type: 'file_created', filename: args.filename, content: args.content });
                 result = `Created ${args.filename} (${args.content.length} bytes)`;
+                if (args.filename.match(/\.(ts|tsx|js|jsx)$/)) {
+                  result += "\nACTION REQUIRED: Code file created. According to the SELF-CORRECTION PROTOCOL, you must now run `npx tsc --noEmit` or `npm run lint` using the run_command tool to verify the code.";
+                }
               }
             } else if (toolCall.function.name === 'run_command') {
               // Execute shell command asynchronously and capture output
@@ -607,6 +711,9 @@ async function startServer() {
                     await fs.writeFile(safeFull, content, 'utf-8');
                     send({ type: 'file_edited', filename: args.filename });
                     result = `Edited ${args.filename} successfully`;
+                    if (args.filename.match(/\.(ts|tsx|js|jsx)$/)) {
+                      result += "\nACTION REQUIRED: Code file modified. According to the SELF-CORRECTION PROTOCOL, you must now run `npx tsc --noEmit` or `npm run lint` using the run_command tool to verify the code.";
+                    }
                   }
                 } catch (err: any) {
                   result = `Error editing file: ${err.message}`;
@@ -625,6 +732,16 @@ async function startServer() {
                   result = `Error deleting file: ${err.message}`;
                 }
               }
+            } else if (toolCall.function.name === 'update_memory') {
+              const memoryPath = path.join(WORKSPACE_DIR, '.ai-memory.json');
+              let memory: Record<string, string> = {};
+              try {
+                const memContent = await fs.readFile(memoryPath, 'utf-8');
+                memory = JSON.parse(memContent);
+              } catch (e) { /* ignore if not exist */ }
+              memory[args.key] = args.content;
+              await fs.writeFile(memoryPath, JSON.stringify(memory, null, 2), 'utf-8');
+              result = `Memory updated successfully. Key: ${args.key}`;
             } else if (toolCall.function.name === 'install_package') {
               const packages = args.packages.join(' ');
               const devFlag = args.dev ? '-D' : '';

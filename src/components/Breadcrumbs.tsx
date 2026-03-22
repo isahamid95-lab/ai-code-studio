@@ -10,13 +10,13 @@ export const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ path, onNavigate }) =>
   const segments = path.split('/').filter(Boolean);
   
   return (
-    <div className="flex items-center gap-1 px-5 py-2 text-[11px] font-medium text-text/40 bg-background/20 border-b border-white/5 overflow-x-auto no-scrollbar">
-      <div className="flex items-center gap-1.5 hover:text-text/70 transition-colors cursor-pointer shrink-0">
-        <Home size={12} />
+    <div className="flex items-center gap-1 px-4 py-1.5 text-[11px] font-medium text-text/30 bg-white/[0.01] border-b border-white/[0.04] overflow-x-auto no-scrollbar shrink-0">
+      <div className="flex items-center gap-1.5 hover:text-text/60 transition-colors cursor-pointer shrink-0">
+        <Home size={11} />
         <span>project</span>
       </div>
       
-      {segments.length > 0 && <ChevronRight size={10} className="shrink-0" />}
+      {segments.length > 0 && <ChevronRight size={9} className="shrink-0 text-text/15" />}
       
       {segments.map((segment, index) => {
         const isLast = index === segments.length - 1;
@@ -24,13 +24,13 @@ export const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ path, onNavigate }) =>
           <React.Fragment key={index}>
             <div 
               className={`flex items-center gap-1.5 transition-colors shrink-0 ${
-                isLast ? 'text-primary' : 'hover:text-text/70 cursor-pointer'
+                isLast ? 'text-text/60' : 'hover:text-text/60 cursor-pointer'
               }`}
             >
-              {isLast && <FileCode2 size={12} />}
+              {isLast && <FileCode2 size={11} className="text-primary/60" />}
               <span>{segment}</span>
             </div>
-            {!isLast && <ChevronRight size={10} className="shrink-0" />}
+            {!isLast && <ChevronRight size={9} className="shrink-0 text-text/15" />}
           </React.Fragment>
         );
       })}

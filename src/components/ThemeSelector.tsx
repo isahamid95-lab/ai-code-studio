@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Palette, Check, Monitor, Moon, Sun } from 'lucide-react'
+import { Palette, Check, Moon, Sun, X } from 'lucide-react'
 import { themes, applyTheme, getStoredTheme, getDefaultTheme, type Theme } from '@/src/themes'
 
 interface ThemeSelectorProps {
@@ -33,7 +33,7 @@ export default function ThemeSelector({ isOpen, onClose }: ThemeSelectorProps) {
       {isOpen && (
         <>
           <div 
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
             onClick={onClose}
           />
           <motion.div
@@ -43,72 +43,74 @@ export default function ThemeSelector({ isOpen, onClose }: ThemeSelectorProps) {
             transition={{ duration: 0.2 }}
             className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-2xl"
           >
-            <div className="glass-panel rounded-2xl p-6 border border-white/10">
-              <div className="flex items-center justify-between mb-6">
+            <div className="glass-panel rounded-2xl border border-white/[0.08] overflow-hidden bg-background">
+              <div className="flex items-center justify-between p-6 border-b border-white/[0.06] bg-white/[0.02]">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-primary/20">
-                    <Palette className="text-primary" size={20} />
+                  <div className="p-2 rounded-xl bg-primary/15 text-primary">
+                    <Palette size={20} />
                   </div>
                   <div>
-                    <h2 className="text-lg font-semibold text-text">Theme Settings</h2>
-                    <p className="text-xs text-text/50">Choose your preferred color scheme</p>
+                    <h2 className="text-sm font-bold text-text uppercase tracking-widest">Theme Settings</h2>
+                    <p className="text-[11px] text-text/50">Choose your preferred color scheme</p>
                   </div>
                 </div>
                 <button 
                   onClick={onClose}
-                  className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                  className="p-2 text-text/30 hover:text-text hover:bg-white/[0.04] rounded-lg transition-colors cursor-pointer"
                 >
-                  <span className="text-text/50 hover:text-text text-xl">×</span>
+                  <X size={18} />
                 </button>
               </div>
 
-              {/* Dark Themes */}
-              <div className="mb-6">
-                <div className="flex items-center gap-2 mb-3">
-                  <Moon size={14} className="text-text/50" />
-                  <span className="text-xs font-semibold text-text/50 uppercase tracking-wider">Dark Themes</span>
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  {groupedThemes.dark.map(theme => (
-                    <ThemeCard 
-                      key={theme.id}
-                      theme={theme}
-                      isSelected={currentTheme.id === theme.id}
-                      onSelect={() => handleSelectTheme(theme)}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Light Themes */}
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <Sun size={14} className="text-text/50" />
-                  <span className="text-xs font-semibold text-text/50 uppercase tracking-wider">Light Themes</span>
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  {groupedThemes.light.map(theme => (
-                    <ThemeCard 
-                      key={theme.id}
-                      theme={theme}
-                      isSelected={currentTheme.id === theme.id}
-                      onSelect={() => handleSelectTheme(theme)}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Preview */}
-              <div className="mt-6 p-4 rounded-xl bg-black/20 border border-white/10">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div 
-                      className="w-6 h-6 rounded-full"
-                      style={{ backgroundColor: currentTheme.colors.primary }}
-                    />
-                    <span className="text-sm text-text font-medium">{currentTheme.name}</span>
+              <div className="p-6">
+                {/* Dark Themes */}
+                <div className="mb-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Moon size={14} className="text-text/40" />
+                    <span className="text-[10px] font-bold text-text/40 uppercase tracking-[0.15em]">Dark Themes</span>
                   </div>
-                  <span className="text-xs text-text/50">{currentTheme.description}</span>
+                  <div className="grid grid-cols-3 gap-3">
+                    {groupedThemes.dark.map(theme => (
+                      <ThemeCard 
+                        key={theme.id}
+                        theme={theme}
+                        isSelected={currentTheme.id === theme.id}
+                        onSelect={() => handleSelectTheme(theme)}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Light Themes */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Sun size={14} className="text-text/40" />
+                    <span className="text-[10px] font-bold text-text/40 uppercase tracking-[0.15em]">Light Themes</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    {groupedThemes.light.map(theme => (
+                      <ThemeCard 
+                        key={theme.id}
+                        theme={theme}
+                        isSelected={currentTheme.id === theme.id}
+                        onSelect={() => handleSelectTheme(theme)}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Preview */}
+                <div className="mt-8 p-4 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-6 h-6 rounded-full"
+                        style={{ backgroundColor: currentTheme.colors.primary }}
+                      />
+                      <span className="text-[13px] text-text font-medium">{currentTheme.name}</span>
+                    </div>
+                    <span className="text-[11px] text-text/50">{currentTheme.description}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -130,42 +132,42 @@ function ThemeCard({ theme, isSelected, onSelect }: {
       whileTap={{ scale: 0.98 }}
       onClick={onSelect}
       className={`
-        relative p-3 rounded-xl border transition-all text-left
+        relative p-3 rounded-xl border transition-all text-left cursor-pointer
         ${isSelected 
-          ? 'border-primary/50 bg-primary/10 ring-2 ring-primary/30' 
-          : 'border-white/10 bg-white/5 hover:bg-white/10'
+          ? 'border-primary/40 bg-primary/10 ring-1 ring-primary/20' 
+          : 'border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.06]'
         }
       `}
     >
       {/* Color Preview */}
-      <div className="flex gap-1 mb-2">
+      <div className="flex gap-1.5 mb-3">
         <div 
-          className="w-4 h-4 rounded-full"
+          className="w-4 h-4 rounded-full shadow-sm"
           style={{ backgroundColor: theme.colors.primary }}
         />
         <div 
-          className="w-4 h-4 rounded-full"
+          className="w-4 h-4 rounded-full shadow-sm"
           style={{ backgroundColor: theme.colors.secondary }}
         />
         <div 
-          className="w-4 h-4 rounded-full"
+          className="w-4 h-4 rounded-full shadow-sm"
           style={{ backgroundColor: theme.colors.accent }}
         />
         <div 
-          className="w-4 h-4 rounded-full border border-white/20"
+          className="w-4 h-4 rounded-full border border-white/20 shadow-inner"
           style={{ backgroundColor: theme.colors.background }}
         />
       </div>
       
       {/* Name */}
-      <span className="text-xs font-medium text-text block">{theme.name}</span>
+      <span className="text-[12px] font-semibold text-text block">{theme.name}</span>
       
       {/* Selected Indicator */}
       {isSelected && (
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
-          className="absolute top-2 right-2 p-1 rounded-full bg-primary"
+          className="absolute top-2.5 right-2.5 p-1 rounded-full bg-primary"
         >
           <Check size={10} className="text-white" />
         </motion.div>
