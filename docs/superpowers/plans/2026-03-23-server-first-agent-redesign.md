@@ -34,8 +34,9 @@
 | `server.ts` | COEP/COOP removal, GET /api/files fix, spawn() for run_command/install_package, new system prompt, ProcessManager, WebSocket terminal, list_files skip list |
 | `src/App.tsx` | Remove WebContainer scaffold, update template buttons |
 | `src/components/FileExplorer.tsx` | Display basename from full path |
+| `src/components/ChatPanel.tsx` | Update Turkish file regex to English pattern |
 | `src/utils/export.ts` | Use server /api/export instead of WebContainer |
-| `src/services/autocomplete.ts` | Remove WebContainer import |
+| `src/services/autocomplete.ts` | Replace WebContainer import with fetch-based getCodeContext |
 | `package.json` | Remove @webcontainer/api, add ws |
 
 ### Files to delete
@@ -529,6 +530,12 @@ git commit -m "feat: add WebSocket terminal endpoint using ws + child_process.sp
 
 ---
 
+---
+
+> **⚠️ Atomic Commit Warning (Tasks 5–11):** Tasks 5 through 11 form a tightly coupled set. Each task commits individually for traceability, but **intermediate commits between Tasks 5–10 will NOT compile** because imports/signatures change across files simultaneously. This is expected. TypeScript and build checks should only be run after Task 11 is complete. If using subagent-driven development, execute Tasks 5–11 as a single batch without running `tsc` between them.
+
+---
+
 ## Task 5: Frontend — Rewrite api.ts (Remove WebContainer)
 
 **Files:**
@@ -643,10 +650,13 @@ git commit -m "refactor: rewrite api.ts to use REST calls instead of WebContaine
 **Files:**
 - Rewrite: `src/hooks/useFiles.ts`
 
+> **Persistence Decision:** The original `useFiles.ts` called `saveProject()`/`loadProject()` from `src/utils/persistence.ts` to save files + chat to IndexedDB. With the server-first architecture, files live on server disk and survive refreshes automatically. Chat message persistence is dropped for now (low priority — can be re-added via server-side storage later). The `persistence.ts` file is left in place but unused; it will be cleaned up in Task 11.
+
 - [ ] **Step 1: Rewrite useFiles.ts to use REST API**
 
 Replace the entire file. Key changes:
 - Remove all WebContainer imports and usage
+- Remove `saveProject`/`loadProject`/`clearProject` imports (persistence now handled by server disk)
 - `fetchFilesFromServer()` now returns REST data (already fixed in api.ts)
 - Remove `applyFileFromAgent()` — replaced by `refreshFiles()` callback
 - Add `isAgentRunning` state for adaptive polling (3s vs 10s)
@@ -1466,14 +1476,30 @@ export async function exportWorkspaceAsZip() {
 }
 ```
 
-- [ ] **Step 3: Fix autocomplete.ts — remove WebContainer import**
+- [ ] **Step 3: Fix autocomplete.ts — replace WebContainer with fetch**
 
-In `src/services/autocomplete.ts`, remove line 1:
+In `src/services/autocomplete.ts`:
+
+**Delete line 1:**
 ```typescript
-// DELETE: import { getWebContainer } from '@/src/lib/webcontainer'
+// DELETE THIS LINE:
+import { getWebContainer } from '@/src/lib/webcontainer'
 ```
 
-And remove/comment any usage of `getWebContainer()` in the file (around line 191). If the autocomplete feature calls WebContainer, replace with a no-op or remove the function.
+**Replace the `getCodeContext` function (around line 189-197) with:**
+```typescript
+export async function getCodeContext(filename: string): Promise<string> {
+  try {
+    const res = await fetch('/api/files');
+    if (!res.ok) return '';
+    const data = await res.json();
+    const file = data.files?.find((f: any) => f.id === filename);
+    return file?.content || '';
+  } catch {
+    return '';
+  }
+}
+```
 
 - [ ] **Step 4: Fix FileExplorer.tsx — display basename**
 
@@ -1484,16 +1510,40 @@ In `src/components/FileExplorer.tsx`, find where `file.name` is displayed and ch
 {file.name.split('/').pop() || file.name}
 ```
 
-- [ ] **Step 5: Remove @webcontainer/api from package.json**
+- [ ] **Step 5: Fix ChatPanel.tsx — update Turkish regex to English**
+
+In `src/components/ChatPanel.tsx`, the `parseMessageContent` function (around line 55-80) uses a Turkish regex to detect file creation messages. The new agent outputs English patterns. Replace:
+
+```typescript
+// REPLACE THIS (line 57):
+const fileRegex = /\n?\n?✅ \*\*(.+?)\*\* oluşturuldu/g;
+
+// WITH:
+const fileRegex = /\n?\n?✅ (?:Created|Edited|Deleted): \*\*(.+?)\*\*/g;
+```
+
+This matches the new English SSE event format from useAgent.ts: `✅ Created: **filename**`, `✏️ Edited: **filename**`, `🗑️ Deleted: **filename**`.
+
+Also update the `file` part type rendering if it references the old Turkish text. Check for any hardcoded Turkish strings in the component.
+
+- [ ] **Step 6: Remove unused persistence imports**
+
+The `src/utils/persistence.ts` file and `src/hooks/useFiles.ts` no longer call `saveProject`/`loadProject`. Verify no other file imports from `persistence.ts`:
+
+Run: `grep -r "persistence" src/ --include="*.ts" --include="*.tsx" -l`
+
+If only the original `useFiles.ts` imported it (now rewritten without it), the file is dead code. Leave `persistence.ts` in place for now — it can be deleted in a future cleanup if confirmed unused.
+
+- [ ] **Step 7: Remove @webcontainer/api from package.json**
 
 Run: `npm uninstall @webcontainer/api`
 
-- [ ] **Step 6: Check for any remaining WebContainer references**
+- [ ] **Step 8: Check for any remaining WebContainer references**
 
 Run: `grep -r "webcontainer\|getWebContainer\|wc-server-ready" src/ --include="*.ts" --include="*.tsx" -l`
 Expected: No matches (except possibly test files handled in next task).
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
 git add -A
