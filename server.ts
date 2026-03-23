@@ -37,6 +37,149 @@ async function ensureWorkspace() {
   // Already ensured synchronously above
 }
 
+const IS_WINDOWS = process.platform === 'win32';
+
+function spawnCommand(command: string, cwd: string, options: {
+  timeout?: number;
+  onData?: (chunk: string) => void;
+}): Promise<{ output: string; exitCode: number }> {
+  return new Promise((resolve, reject) => {
+    const shell = IS_WINDOWS ? 'cmd' : 'sh';
+    const shellArgs = IS_WINDOWS ? ['/c', command] : ['-c', command];
+
+    const child = spawn(shell, shellArgs, {
+      cwd,
+      env: { ...process.env, FORCE_COLOR: '0', CI: 'true', NONINTERACTIVE: '1' },
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    let output = '';
+    const timeout = options.timeout || 120000;
+    const timer = setTimeout(() => {
+      child.kill('SIGTERM');
+      reject(new Error(`Command timed out after ${timeout / 1000}s`));
+    }, timeout);
+
+    child.stdout.on('data', (data: Buffer) => {
+      const chunk = data.toString();
+      output += chunk;
+      options.onData?.(chunk);
+    });
+
+    child.stderr.on('data', (data: Buffer) => {
+      const chunk = data.toString();
+      output += chunk;
+      options.onData?.(chunk);
+    });
+
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      resolve({ output: output || '(no output)', exitCode: code ?? 1 });
+    });
+
+    child.on('error', (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+  });
+}
+
+// --- Process Manager for long-running dev servers ---
+const managedProcesses = new Map<number, { pid: number; command: string; port?: number; process: any; spawnedAt: number }>();
+
+function killManagedProcess(pid: number) {
+  const entry = managedProcesses.get(pid);
+  if (entry) {
+    try { entry.process.kill('SIGTERM'); } catch {}
+    managedProcesses.delete(pid);
+  }
+}
+
+function killAllManagedProcesses() {
+  for (const [pid] of managedProcesses) {
+    killManagedProcess(pid);
+  }
+}
+
+function killProcessOnPort(port: number) {
+  for (const [pid, entry] of managedProcesses) {
+    if (entry.port === port) {
+      killManagedProcess(pid);
+      return;
+    }
+  }
+}
+
+// Cleanup on server shutdown
+process.on('SIGTERM', killAllManagedProcesses);
+process.on('SIGINT', killAllManagedProcesses);
+
+const DEV_SERVER_PATTERN = /(npm run dev|npm run start|npx vite|next dev|node server|nodemon)/i;
+const PORT_PATTERN = /(?:localhost|127\.0\.0\.1|0\.0\.0\.0):(\d+)|port\s+(\d+)|http:\/\/[^:]+:(\d+)/i;
+
+function spawnDevServer(command: string, cwd: string, options: {
+  onData?: (chunk: string) => void;
+  onPort?: (port: number) => void;
+}): Promise<{ output: string; port?: number }> {
+  return new Promise((resolve) => {
+    const shell = IS_WINDOWS ? 'cmd' : 'sh';
+    const shellArgs = IS_WINDOWS ? ['/c', command] : ['-c', command];
+
+    const child = spawn(shell, shellArgs, {
+      cwd,
+      env: { ...process.env, FORCE_COLOR: '0' },
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    let output = '';
+    let detectedPort: number | undefined;
+    let resolved = false;
+
+    const entry: { pid: number; command: string; port?: number; process: any; spawnedAt: number } = { pid: child.pid!, command, process: child, spawnedAt: Date.now() };
+    managedProcesses.set(child.pid!, entry);
+
+    child.on('error', (err) => {
+      if (!resolved) { resolved = true; resolve({ output: `Spawn error: ${err.message}`, port: undefined }); }
+    });
+
+    const finish = () => {
+      if (resolved) return;
+      resolved = true;
+      resolve({ output, port: detectedPort });
+    };
+
+    // Auto-resolve after 30s even if no port detected
+    const timer = setTimeout(finish, 30000);
+
+    const handleData = (data: Buffer) => {
+      const chunk = data.toString();
+      output += chunk;
+      options.onData?.(chunk);
+
+      if (!detectedPort) {
+        const match = chunk.match(PORT_PATTERN);
+        if (match) {
+          detectedPort = parseInt(match[1] || match[2] || match[3]);
+          entry.port = detectedPort;
+          options.onPort?.(detectedPort);
+          clearTimeout(timer);
+          // Give a moment for server to be fully ready
+          setTimeout(finish, 1000);
+        }
+      }
+    };
+
+    child.stdout.on('data', handleData);
+    child.stderr.on('data', handleData);
+
+    child.on('close', () => {
+      managedProcesses.delete(child.pid!);
+      clearTimeout(timer);
+      finish();
+    });
+  });
+}
+
 async function startServer() {
   await ensureWorkspace();
 
@@ -655,34 +798,42 @@ async function startServer() {
                 }
               }
             } else if (toolCall.function.name === 'run_command') {
-              // Execute shell command asynchronously and capture output
               send({ type: 'command_start', command: args.command });
               try {
-                const { exec } = await import('child_process');
-                const util = await import('util');
-                const execPromise = util.promisify(exec);
-                const { stdout, stderr } = await execPromise(args.command, {
-                  cwd: WORKSPACE_DIR,
-                  timeout: 60000, // 60s timeout
-                  env: { ...process.env, FORCE_COLOR: '0', HOME: process.env.HOME || '/root', CI: 'true', NONINTERACTIVE: '1' }
-                });
-                const output = stdout || stderr || '(no output)';
-                send({ type: 'command_output', command: args.command, output });
-                result = output;
+                if (DEV_SERVER_PATTERN.test(args.command)) {
+                  // Long-running dev server — spawn as background process
+                  const { output, port } = await spawnDevServer(args.command, WORKSPACE_DIR, {
+                    onData: (chunk) => send({ type: 'command_output', command: args.command, output: chunk }),
+                    onPort: (p) => send({ type: 'server_started', port: p }),
+                  });
+                  result = port
+                    ? `Dev server started on port ${port}. Output: ${output.slice(-500)}`
+                    : `Server started but port not detected. Output: ${output.slice(-500)}`;
+                } else {
+                  // Short-lived command — wait for completion
+                  const { output, exitCode } = await spawnCommand(args.command, WORKSPACE_DIR, {
+                    timeout: 120000,
+                    onData: (chunk) => send({ type: 'command_output', command: args.command, output: chunk }),
+                  });
+                  result = exitCode === 0
+                    ? output.slice(-2000)
+                    : `Command failed (exit ${exitCode}): ${output.slice(-2000)}`;
+                }
               } catch (cmdErr: any) {
-                const errOutput = cmdErr.stderr || cmdErr.stdout || cmdErr.message;
-                send({ type: 'command_output', command: args.command, output: errOutput, error: true });
-                result = `Command output: ${errOutput}`;
+                const errMsg = cmdErr.message || String(cmdErr);
+                send({ type: 'command_output', command: args.command, output: errMsg, error: true });
+                result = `Command error: ${errMsg}`;
               }
             } else if (toolCall.function.name === 'read_file') {
               const fullPath = path.join(WORKSPACE_DIR, args.filename);
               result = await fs.readFile(fullPath, 'utf-8').catch(() => 'File not found');
             } else if (toolCall.function.name === 'list_files') {
               const fileList: string[] = [];
+              const LIST_SKIP = new Set(['.git', 'node_modules', 'dist', 'build', '.next']);
               async function listDir(dir: string, rel: string = '') {
                 const entries = await fs.readdir(dir, { withFileTypes: true });
                 for (const e of entries) {
-                  if (e.name === '.git' || e.name === 'node_modules') continue;
+                  if (LIST_SKIP.has(e.name)) continue;
                   const relPath = rel ? `${rel}/${e.name}` : e.name;
                   if (e.isDirectory()) await listDir(path.join(dir, e.name), relPath);
                   else fileList.push(relPath);
@@ -741,21 +892,15 @@ async function startServer() {
               const command = `npm install ${devFlag} ${packages}`.trim();
               send({ type: 'command_start', command });
               try {
-                const { exec } = await import('child_process');
-                const util = await import('util');
-                const execPromise = util.promisify(exec);
-                const { stdout, stderr } = await execPromise(command, {
-                  cwd: WORKSPACE_DIR,
+                const { output, exitCode } = await spawnCommand(command, WORKSPACE_DIR, {
                   timeout: 120000,
-                  env: { ...process.env, FORCE_COLOR: '0', HOME: process.env.HOME || '/root' }
+                  onData: (chunk) => send({ type: 'command_output', command, output: chunk }),
                 });
-                const output = stdout || stderr || 'Packages installed';
-                send({ type: 'command_output', command, output });
-                result = output;
+                result = exitCode === 0 ? output.slice(-2000) : `Install failed (exit ${exitCode}): ${output.slice(-2000)}`;
               } catch (cmdErr: any) {
-                const errOutput = cmdErr.stderr || cmdErr.stdout || cmdErr.message;
-                send({ type: 'command_output', command, output: errOutput, error: true });
-                result = `Install error: ${errOutput}`;
+                const errMsg = cmdErr.message || String(cmdErr);
+                send({ type: 'command_output', command, output: errMsg, error: true });
+                result = `Install error: ${errMsg}`;
               }
             } else if (toolCall.function.name === 'search_code') {
               const results: { file: string; line: number; content: string }[] = [];
@@ -865,6 +1010,24 @@ async function startServer() {
       res.json({ success: true });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
+    }
+  });
+
+  // --- Process Manager API ---
+  app.get("/api/processes", (req, res) => {
+    const processes = Array.from(managedProcesses.values()).map(p => ({
+      pid: p.pid, command: p.command, port: p.port, spawnedAt: p.spawnedAt
+    }));
+    res.json({ processes });
+  });
+
+  app.delete("/api/processes/:pid", (req, res) => {
+    const pid = parseInt(req.params.pid);
+    if (managedProcesses.has(pid)) {
+      killManagedProcess(pid);
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ error: "Process not found" });
     }
   });
 
