@@ -45,13 +45,6 @@ async function startServer() {
 
   app.use(express.json({ limit: '10mb' }));
 
-  // COOP/COEP Headers for WebContainer API
-  app.use((req, res, next) => {
-    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-    res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
-    next();
-  });
-
   // --- Enhanced AI Endpoints ---
 
   // Code Analysis Endpoint
@@ -817,19 +810,26 @@ async function startServer() {
   app.get("/api/files", async (req, res) => {
     try {
       const files: any[] = [];
+      const SKIP = new Set(['.git', 'node_modules', 'dist', 'build', '.next']);
+
       async function readDirRecursive(dir: string, relativePath: string = "") {
         const entries = await fs.readdir(dir, { withFileTypes: true });
         for (const entry of entries) {
-          if (entry.name === ".git") continue;
+          if (SKIP.has(entry.name)) continue;
           const fullPath = path.join(dir, entry.name);
-          const relPath = path.join(relativePath, entry.name);
+          const relPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
           if (entry.isDirectory()) {
             await readDirRecursive(fullPath, relPath);
           } else {
-            const content = await fs.readFile(fullPath, "utf-8");
+            let content: string;
+            try {
+              content = await fs.readFile(fullPath, "utf-8");
+            } catch {
+              continue; // skip unreadable / binary files
+            }
             files.push({
-              id: relPath, // Use relative path as ID
-              name: entry.name,
+              id: relPath,
+              name: relPath,  // FIXED: full relative path, not basename
               content,
               language: detectLanguage(entry.name),
             });
