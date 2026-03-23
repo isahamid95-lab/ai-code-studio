@@ -1,21 +1,6 @@
 import '@testing-library/jest-dom'
 import { vi } from 'vitest'
 
-// Mock WebContainer API
-vi.mock('@/lib/webcontainer', () => ({
-  getWebContainer: vi.fn(() => Promise.resolve({
-    fs: {
-      readFile: vi.fn(),
-      writeFile: vi.fn(),
-      mkdir: vi.fn(),
-      readdir: vi.fn(),
-      rm: vi.fn(),
-    },
-    spawn: vi.fn(),
-    on: vi.fn(),
-  })),
-}))
-
 // Mock fetch for API calls
 global.fetch = vi.fn()
 
@@ -41,4 +26,15 @@ Object.defineProperty(window, 'matchMedia', {
     removeEventListener: vi.fn(),
     dispatchEvent: vi.fn(),
   })),
+})
+
+class ResizeObserverMock {
+  observe = vi.fn()
+  unobserve = vi.fn()
+  disconnect = vi.fn()
+}
+
+Object.defineProperty(globalThis, 'ResizeObserver', {
+  writable: true,
+  value: ResizeObserverMock,
 })

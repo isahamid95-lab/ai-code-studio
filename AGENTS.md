@@ -21,7 +21,7 @@ npm run preview
 npm run clean
 ```
 
-**Note:** No test framework is currently configured. Tests referenced in README are aspirational.
+**Note:** Vitest is configured. Use `npm test` for the current test suite.
 
 ## Project Overview
 
@@ -30,7 +30,7 @@ AI Code Studio Pro is a browser-based IDE with integrated AI assistance, built w
 - **Backend:** Express.js server (server.ts)
 - **Editor:** CodeMirror 6 with syntax highlighting
 - **AI:** Alibaba Qwen3 Coder (primary), Google Gemini (optional)
-- **Runtime:** WebContainer API for in-browser Node.js execution
+- **Runtime:** Server-first local Node.js execution with `project-workspace/` as the source of truth
 
 ## Code Style Guidelines
 
@@ -47,7 +47,7 @@ import type { FileItem, ChatMessage, AiProvider } from '../types';
 
 // 3. Internal utilities and hooks
 import { useFiles } from '../hooks/useFiles';
-import { sendChatMessage } from '../services/api';
+import { fetchFilesFromServer } from '../services/api';
 
 // 4. Components (lazy-loaded for heavy ones)
 const Header = React.lazy(() => import('./components/Header'));
@@ -126,7 +126,7 @@ const ChatPanel = React.memo(function ChatPanel({
 
 ```typescript
 try {
-  const response = await fetch('/api/chat', { ... });
+  const response = await fetch('/api/files');
   if (!response.ok) throw new Error('Request failed');
   const data = await response.json();
   // Handle success
@@ -144,7 +144,7 @@ src/
 ├── hooks/          # Custom React hooks (use*.ts)
 ├── services/       # API calls and external services
 ├── types/          # TypeScript type definitions
-├── lib/            # Core libraries (WebContainer setup)
+├── lib/            # Shared server/runtime helpers
 ├── utils/          # Pure utility functions
 ├── constants.ts    # App-wide constants
 └── App.tsx         # Main application component
@@ -164,7 +164,8 @@ Use conventional commit format:
 
 - **Server routes:** Defined in `server.ts` under `/api/*`
 - **Client calls:** Use functions in `src/services/api.ts`
-- **WebContainer:** Access via `getWebContainer()` from `src/lib/webcontainer.ts`
+- **Agent flow:** Use `/api/agent` with SSE events for server-side agent runs
+- **Workspace:** Files live under `project-workspace/` and are accessed through the REST file API
 
 ### Environment Variables
 

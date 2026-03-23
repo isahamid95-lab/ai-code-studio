@@ -1,15 +1,17 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { FileItem, LogEntry } from '../types';
-import { initialFiles, detectLanguage } from '../constants';
+import { detectLanguage } from '../constants';
 import { fetchFilesFromServer, saveFileToServer, deleteFileFromServer, runFileOnServer } from '../services/api';
-import { saveProject, loadProject, clearProject } from '../utils/persistence';
-import { getWebContainer } from '../lib/webcontainer';
+import { loadUiState, saveUiState, type UiStateSnapshot } from '../utils/persistence';
 
-// Debounce helper
 function useDebouncedCallback<T extends (...args: any[]) => void>(callback: T, delay: number): T {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   return useCallback((...args: any[]) => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
     timeoutRef.current = setTimeout(() => callback(...args), delay);
   }, [callback, delay]) as unknown as T;
 }
@@ -17,134 +19,179 @@ function useDebouncedCallback<T extends (...args: any[]) => void>(callback: T, d
 export function useFiles() {
   const [files, setFiles] = useState<FileItem[]>([]);
   const [openTabs, setOpenTabs] = useState<string[]>([]);
-  const [activeTabId, setActiveTabId] = useState<string>('');
+  const [activeTabId, setActiveTabId] = useState('');
   const [dirtyFileIds, setDirtyFileIds] = useState<Set<string>>(new Set());
-
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
   const [terminalOutput, setTerminalOutput] = useState<LogEntry[]>([
-    { type: 'info', text: '$ Terminal ready' }
+    { type: 'info', text: '$ Agent output ready', timestamp: Date.now() },
   ]);
-
   const [isCreatingFile, setIsCreatingFile] = useState(false);
   const [newFileName, setNewFileName] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [selectedCode, setSelectedCode] = useState('');
+  const [isAgentRunning, setIsAgentRunning] = useState(false);
+  const [persistedUiState, setPersistedUiState] = useState<UiStateSnapshot | null | undefined>(undefined);
 
-  const activeFile = files.find(f => f.id === activeTabId);
+  const activeFile = files.find((file) => file.id === activeTabId);
+  const hasFetchedInitialFilesRef = useRef(false);
+  const hasAppliedUiRestoreRef = useRef(false);
+  const hasHydratedOpenStateRef = useRef(false);
+  const dirtyFileIdsRef = useRef(dirtyFileIds);
 
-  // Save to backend with debounce
+  useEffect(() => {
+    dirtyFileIdsRef.current = dirtyFileIds;
+  }, [dirtyFileIds]);
+
   const debouncedSave = useDebouncedCallback(async (id: string, content: string) => {
     try {
       await saveFileToServer(id, content);
-      setDirtyFileIds(prev => {
-        const next = new Set(prev);
+      setDirtyFileIds((previous) => {
+        const next = new Set(previous);
         next.delete(id);
         return next;
       });
-    } catch (e) {
-      console.error("Failed to save file", e);
+    } catch (error) {
+      console.error('Failed to save file', error);
     }
   }, 500);
 
   const saveFileToBackend = useCallback(async (id: string, content: string) => {
-    try {
-      await saveFileToServer(id, content);
-    } catch (e) {
-      console.error("Failed to save file", e);
-    }
+    await saveFileToServer(id, content);
   }, []);
 
   const fetchFiles = useCallback(async () => {
     try {
       const serverFiles = await fetchFilesFromServer();
-      if (serverFiles && serverFiles.length > 0) {
-        setFiles(prevFiles => {
-          // Optimization: Check if anything actually changed besides the current active file's content
-          // This prevents global re-renders of the explorer and tabs if only the server fs is being polled
-          const isSame = prevFiles.length === serverFiles.length && 
-            prevFiles.every((f, i) => f.id === serverFiles[i].id && f.name === serverFiles[i].name);
-          
-          if (isSame) {
-            // Only update content if it's different (and not for the active file being edited)
-            let hasContentChange = false;
-            const updated = prevFiles.map(localFile => {
-              const serverFile = serverFiles.find(sf => sf.id === localFile.id);
-              if (serverFile && serverFile.content !== localFile.content) {
-                if (activeTabId === localFile.id) return localFile; // Skip active file
-                hasContentChange = true;
-                return { ...localFile, content: serverFile.content };
-              }
-              return localFile;
-            });
-            return hasContentChange ? updated : prevFiles;
-          }
-          
+      hasFetchedInitialFilesRef.current = true;
+
+      setFiles((previous) => {
+        const currentDirtyFileIds = dirtyFileIdsRef.current;
+
+        if (previous.length === 0) {
           return serverFiles;
+        }
+
+        return serverFiles.map((serverFile) => {
+          if (currentDirtyFileIds.has(serverFile.id)) {
+            const localFile = previous.find((candidate) => candidate.id === serverFile.id);
+            return localFile ?? serverFile;
+          }
+
+          return serverFile;
         });
-      } else if (serverFiles && serverFiles.length === 0) {
-        setFiles([]);
-        setOpenTabs([]);
-        setActiveTabId('');
-      }
-    } catch (e) {
-      console.error("Failed to fetch files", e);
+      });
+    } catch (error) {
+      console.error('Failed to fetch files', error);
+      hasFetchedInitialFilesRef.current = true;
     }
-  }, [activeTabId]);
-
-  useEffect(() => {
-    fetchFiles();
-    // Throttle File Sync from WebContainer (10s instead of 3s for performance)
-    const intervalId = setInterval(fetchFiles, 10000);
-    return () => clearInterval(intervalId);
-  }, [fetchFiles]);
-
-  // Persistence Auto-Save
-  useEffect(() => {
-    if (files.length > 0) {
-      const chatMessages = (window as any)._chatMessages || [];
-      saveProject(files, activeTabId, chatMessages).catch(console.error);
-    }
-  }, [files, activeTabId]);
-
-  // Initial Restore/Scaffold
-  useEffect(() => {
-    (async () => {
-       const snapshot = await loadProject();
-       if (snapshot && snapshot.files.length > 0 && files.length === 0) {
-          // Sync restored files back to WC filesystem
-          const wc = await getWebContainer();
-          for (const file of snapshot.files) {
-             await wc.fs.writeFile(file.id, file.content);
-          }
-          setFiles(snapshot.files);
-          setActiveTabId(snapshot.activeId);
-          setOpenTabs(snapshot.files.filter(f => f.id === snapshot.activeId).map(f => f.id));
-          if (snapshot.chatMessages && (window as any)._setChatMessages) {
-             (window as any)._setChatMessages(snapshot.chatMessages);
-          }
-       }
-    })();
   }, []);
 
+  useEffect(() => {
+    void fetchFiles();
+  }, [fetchFiles]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      void fetchFiles();
+    }, isAgentRunning ? 3000 : 10000);
+
+    return () => window.clearInterval(intervalId);
+  }, [fetchFiles, isAgentRunning]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    void (async () => {
+      try {
+        const snapshot = await loadUiState();
+        if (!isCancelled) {
+          setPersistedUiState(snapshot ?? null);
+        }
+      } catch (error) {
+        console.error('Failed to restore tab state', error);
+        if (!isCancelled) {
+          setPersistedUiState(null);
+        }
+      }
+    })();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (persistedUiState === undefined || !hasFetchedInitialFilesRef.current || hasAppliedUiRestoreRef.current) {
+      return;
+    }
+
+    const validFileIds = new Set(files.map((file) => file.id));
+    const nextOpenTabs = (persistedUiState?.openTabs ?? []).filter((tabId) => validFileIds.has(tabId));
+    const nextActiveTabId = persistedUiState?.activeTabId && validFileIds.has(persistedUiState.activeTabId)
+      ? persistedUiState.activeTabId
+      : nextOpenTabs[0] ?? '';
+
+    setOpenTabs(nextOpenTabs);
+    setActiveTabId(nextActiveTabId);
+    hasAppliedUiRestoreRef.current = true;
+    hasHydratedOpenStateRef.current = true;
+  }, [files, persistedUiState]);
+
+  useEffect(() => {
+    if (persistedUiState === null && !hasAppliedUiRestoreRef.current) {
+      hasAppliedUiRestoreRef.current = true;
+      hasHydratedOpenStateRef.current = true;
+    }
+  }, [persistedUiState]);
+
+  useEffect(() => {
+    const validFileIds = new Set(files.map((file) => file.id));
+    const nextOpenTabs = openTabs.filter((tabId) => validFileIds.has(tabId));
+
+    if (nextOpenTabs.length !== openTabs.length) {
+      setOpenTabs(nextOpenTabs);
+    }
+
+    if (activeTabId && !validFileIds.has(activeTabId)) {
+      setActiveTabId(nextOpenTabs[0] ?? '');
+    }
+  }, [files, activeTabId, openTabs]);
+
+  useEffect(() => {
+    if (!hasHydratedOpenStateRef.current) {
+      return;
+    }
+
+    void saveUiState({ openTabs, activeTabId });
+  }, [activeTabId, openTabs]);
+
   const handleFileChange = useCallback((newContent: string) => {
-    setFiles(prev => prev.map(f => f.id === activeTabId ? { ...f, content: newContent } : f));
-    setDirtyFileIds(prev => new Set(prev).add(activeTabId));
+    if (!activeTabId) {
+      return;
+    }
+
+    setFiles((previous) => previous.map((file) => (
+      file.id === activeTabId
+        ? { ...file, content: newContent, updatedAt: Date.now() }
+        : file
+    )));
+    setDirtyFileIds((previous) => new Set(previous).add(activeTabId));
     debouncedSave(activeTabId, newContent);
   }, [activeTabId, debouncedSave]);
 
   const openFile = useCallback((id: string) => {
-    setOpenTabs(prev => prev.includes(id) ? prev : [...prev, id]);
+    setOpenTabs((previous) => previous.includes(id) ? previous : [...previous, id]);
     setActiveTabId(id);
   }, []);
 
-  const closeTab = useCallback((e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    setOpenTabs(prev => {
-      const newTabs = prev.filter(t => t !== id);
+  const closeTab = useCallback((event: React.MouseEvent, id: string) => {
+    event.stopPropagation();
+    setOpenTabs((previous) => {
+      const next = previous.filter((tabId) => tabId !== id);
       if (activeTabId === id) {
-        setActiveTabId(newTabs.length > 0 ? newTabs[newTabs.length - 1] : '');
+        setActiveTabId(next[next.length - 1] ?? '');
       }
-      return newTabs;
+      return next;
     });
   }, [activeTabId]);
 
@@ -159,140 +206,140 @@ export function useFiles() {
   }, []);
 
   const handleCreateFile = useCallback((templates: Record<string, { content: string; defaultExt: string }>) => {
-    if (!newFileName.trim()) {
+    const nextName = newFileName.trim();
+    if (!nextName) {
       setIsCreatingFile(false);
       setSelectedTemplate(null);
       return;
     }
-    const content = selectedTemplate && templates[selectedTemplate] ? templates[selectedTemplate].content : '';
-    const newFile: FileItem = {
-      id: newFileName.trim(),
-      name: newFileName.trim(),
-      language: detectLanguage(newFileName.trim()),
+
+    const content = selectedTemplate ? templates[selectedTemplate]?.content ?? '' : '';
+    const nextFile: FileItem = {
+      id: nextName,
+      name: nextName,
+      language: detectLanguage(nextName),
       content,
       createdAt: Date.now(),
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
     };
-    setFiles(prev => [...prev, newFile]);
-    setOpenTabs(prev => [...prev, newFile.id]);
-    setActiveTabId(newFile.id);
+
+    setFiles((previous) => [...previous, nextFile]);
+    setOpenTabs((previous) => [...previous, nextFile.id]);
+    setActiveTabId(nextFile.id);
     setNewFileName('');
     setIsCreatingFile(false);
     setSelectedTemplate(null);
-    saveFileToBackend(newFile.id, content);
-  }, [newFileName, selectedTemplate, saveFileToBackend]);
+    void saveFileToBackend(nextFile.id, content);
+  }, [newFileName, saveFileToBackend, selectedTemplate]);
 
-  const handleDeleteFile = useCallback(async (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    try {
-      await deleteFileFromServer(id);
-      setFiles(prev => prev.filter(f => f.id !== id));
-      setOpenTabs(prev => {
-        const newTabs = prev.filter(t => t !== id);
-        if (activeTabId === id) {
-          setActiveTabId(newTabs.length > 0 ? newTabs[newTabs.length - 1] : '');
-        }
-        return newTabs;
-      });
-    } catch (err) {
-      console.error("Failed to delete file", err);
-    }
+  const handleDeleteFile = useCallback(async (event: React.MouseEvent, id: string) => {
+    event.stopPropagation();
+    await deleteFileFromServer(id);
+    setFiles((previous) => previous.filter((file) => file.id !== id));
+    setOpenTabs((previous) => {
+      const next = previous.filter((tabId) => tabId !== id);
+      if (activeTabId === id) {
+        setActiveTabId(next[next.length - 1] ?? '');
+      }
+      return next;
+    });
   }, [activeTabId]);
 
-  const applyFileFromAgent = useCallback((filename: string, content: string) => {
-    const lang = detectLanguage(filename);
-    const displayName = filename; // Keep full path for proper tree display
-    setFiles(prev => {
-      const existing = prev.find(f => f.id === filename || f.name === filename);
-      if (existing) {
-        return prev.map(f => f.id === existing.id ? { ...f, content, language: lang, updatedAt: Date.now() } : f);
-      }
-      return [...prev, { id: filename, name: displayName, language: lang, content, createdAt: Date.now(), updatedAt: Date.now() }];
-    });
-    setOpenTabs(prev => prev.includes(filename) ? prev : [...prev, filename]);
-    setActiveTabId(filename);
-    saveFileToBackend(filename, content);
-  }, [saveFileToBackend]);
+  const appendTerminalOutput = useCallback((entry: LogEntry) => {
+    setTerminalOutput((previous) => [...previous, { ...entry, timestamp: entry.timestamp ?? Date.now() }]);
+  }, []);
+
+  const clearTerminalOutput = useCallback(() => {
+    setTerminalOutput([{ type: 'info', text: '$ Agent output ready', timestamp: Date.now() }]);
+  }, []);
 
   const runCode = useCallback(async () => {
     if (!activeFile) {
       setIsTerminalOpen(true);
-      setTerminalOutput(prev => [...prev, { type: 'error', text: '⚠️ No file selected. Open a file to run it.' }]);
+      appendTerminalOutput({ type: 'error', text: 'No file selected. Open a file to run it.' });
       return;
     }
+
     if (activeFile.language === 'html') {
       setIsTerminalOpen(true);
-      setTerminalOutput(prev => [...prev, { type: 'info', text: `ℹ️ HTML files can be previewed — use the Live Preview feature (coming soon). For now, open the file directly in a browser.` }]);
+      appendTerminalOutput({ type: 'info', text: 'HTML files are previewed in the Preview panel.' });
       return;
     }
+
     if (activeFile.language === 'css') {
       setIsTerminalOpen(true);
-      setTerminalOutput(prev => [...prev, { type: 'info', text: `ℹ️ CSS files cannot be executed directly. Link them in an HTML file for styling.` }]);
-      return;
-    }
-    if (activeFile.language !== 'javascript' && activeFile.language !== 'typescript') {
-      setIsTerminalOpen(true);
-      setTerminalOutput(prev => [...prev, { type: 'error', text: `⚠️ Cannot execute ${activeFile.language} files in this environment. Only JavaScript and TypeScript are supported.` }]);
+      appendTerminalOutput({ type: 'info', text: 'CSS files are applied through HTML or app entry points and cannot run directly.' });
       return;
     }
 
     setIsTerminalOpen(true);
-    setTerminalOutput([{ type: 'info', text: `> Executing ${activeFile.name}...` }]);
+    clearTerminalOutput();
 
-    try {
-      const response = await runFileOnServer(activeFile.id);
+    const response = await runFileOnServer(activeFile.id);
+    if (!response.ok || !response.body) {
+      appendTerminalOutput({ type: 'error', text: await response.text() });
+      return;
+    }
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        setTerminalOutput(prev => [...prev, { type: 'error', text: `Error: ${errorData.error}` }]);
-        return;
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
       }
 
-      if (!response.body) return;
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
+      buffer += decoder.decode(value, { stream: true });
+      const chunks = buffer.split('\n\n');
+      buffer = chunks.pop() ?? '';
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n\n');
-        buffer = lines.pop() || '';
+      for (const chunk of chunks) {
+        const line = chunk.split('\n').find((entry) => entry.startsWith('data: '));
+        if (!line) {
+          continue;
+        }
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              if (data.type === 'exit') {
-                setTerminalOutput(prev => [...prev, { type: 'info', text: `> Execution finished with code ${data.code}.` }]);
-              } else {
-                setTerminalOutput(prev => [...prev, { type: data.type, text: data.text.trimEnd() }]);
-              }
-            } catch (e) {
-              console.error('Failed to parse SSE data', e);
-            }
-          }
+        const payload = JSON.parse(line.slice(6)) as { type: string; text?: string; code?: number };
+        if (payload.type === 'error') {
+          appendTerminalOutput({ type: 'error', text: payload.text ?? 'Execution error' });
+        } else if (payload.type === 'exit') {
+          appendTerminalOutput({ type: 'success', text: `Process exited with code ${payload.code ?? 0}` });
+        } else {
+          appendTerminalOutput({ type: 'info', text: payload.text ?? '' });
         }
       }
-    } catch (err: any) {
-      setTerminalOutput(prev => [...prev, { type: 'error', text: err.toString() }]);
     }
-  }, [activeFile]);
+  }, [activeFile, appendTerminalOutput, clearTerminalOutput]);
 
   return {
-    files, setFiles,
-    openTabs, setOpenTabs,
-    activeTabId, setActiveTabId,
-    dirtyFileIds,
+    files,
+    setFiles,
+    openTabs,
+    setOpenTabs,
+    activeTabId,
+    setActiveTabId,
     activeFile,
-    isTerminalOpen, setIsTerminalOpen,
-    terminalOutput, setTerminalOutput,
-    isCreatingFile, setIsCreatingFile,
-    newFileName, setNewFileName,
-    selectedTemplate, setSelectedTemplate,
-    selectedCode, setSelectedCode,
+    dirtyFileIds,
+    isTerminalOpen,
+    setIsTerminalOpen,
+    terminalOutput,
+    setTerminalOutput,
+    appendTerminalOutput,
+    clearTerminalOutput,
+    isCreatingFile,
+    setIsCreatingFile,
+    newFileName,
+    setNewFileName,
+    selectedTemplate,
+    setSelectedTemplate,
+    selectedCode,
+    setSelectedCode,
+    isAgentRunning,
+    setIsAgentRunning,
+    fetchFiles,
+    saveFileToBackend,
     handleFileChange,
     openFile,
     closeTab,
@@ -300,9 +347,6 @@ export function useFiles() {
     closeAllTabs,
     handleCreateFile,
     handleDeleteFile,
-    applyFileFromAgent,
     runCode,
-    fetchFiles,
-    saveFileToBackend,
   };
 }

@@ -67,19 +67,19 @@ describe('FileExplorer Component', () => {
   it('should show file creation input when isCreatingFile is true', () => {
     render(<FileExplorer {...defaultProps} isCreatingFile={true} />)
     
-    expect(screen.getByPlaceholderText('src/components/NewFile.tsx')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('filename.js')).toBeInTheDocument()
   })
 
   it('should not show file creation input when isCreatingFile is false', () => {
     render(<FileExplorer {...defaultProps} isCreatingFile={false} />)
     
-    expect(screen.queryByPlaceholderText('src/components/NewFile.tsx')).not.toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('filename.js')).not.toBeInTheDocument()
   })
 
   it('should update filename on input change', () => {
     render(<FileExplorer {...defaultProps} isCreatingFile={true} />)
     
-    const input = screen.getByPlaceholderText('src/components/NewFile.tsx')
+    const input = screen.getByPlaceholderText('filename.js')
     fireEvent.change(input, { target: { value: 'newfile.ts' } })
     
     expect(mockOnSetNewFileName).toHaveBeenCalledWith('newfile.ts')
@@ -88,7 +88,7 @@ describe('FileExplorer Component', () => {
   it('should call onCreateFile on Enter key', () => {
     render(<FileExplorer {...defaultProps} isCreatingFile={true} newFileName="test.ts" />)
     
-    const input = screen.getByPlaceholderText('src/components/NewFile.tsx')
+    const input = screen.getByPlaceholderText('filename.js')
     fireEvent.keyDown(input, { key: 'Enter' })
     
     expect(mockOnCreateFile).toHaveBeenCalled()
@@ -97,7 +97,7 @@ describe('FileExplorer Component', () => {
   it('should close file creation on Escape key', () => {
     render(<FileExplorer {...defaultProps} isCreatingFile={true} />)
     
-    const input = screen.getByPlaceholderText('src/components/NewFile.tsx')
+    const input = screen.getByPlaceholderText('filename.js')
     fireEvent.keyDown(input, { key: 'Escape' })
     
     expect(mockOnSetCreatingFile).toHaveBeenCalledWith(false)
@@ -133,8 +133,7 @@ describe('FileExplorer Component', () => {
     
     fireEvent.contextMenu(screen.getByText('app.ts'))
     
-    expect(screen.getByText('Rename')).toBeInTheDocument()
-    expect(screen.getByText('Delete')).toBeInTheDocument()
+    expect(screen.getByText('Delete File')).toBeInTheDocument()
   })
 
   it('should handle empty files array', () => {

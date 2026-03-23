@@ -1,10 +1,14 @@
 import express from "express";
+import { createServer as createHttpServer } from "http";
 import { createServer as createViteServer } from "vite";
 import fs from "fs/promises";
 import path from "path";
+import net from "net";
 import simpleGit from "simple-git";
-import { spawn } from "child_process";
+import { spawn, type ChildProcessWithoutNullStreams } from "child_process";
 import archiver from "archiver";
+import { WebSocketServer } from "ws";
+import { detectPortFromOutput, isDevServerCommand, preflightDevServerStart, type ManagedProcessLike } from "./lib/dev-server";
 
 import fsSync from 'fs';
 import dotenv from 'dotenv';
@@ -38,54 +42,146 @@ async function ensureWorkspace() {
 }
 
 const IS_WINDOWS = process.platform === 'win32';
+const FILE_SKIP = new Set(['.git', 'node_modules', 'dist', 'build', '.next']);
 
-function spawnCommand(command: string, cwd: string, options: {
+interface ManagedProcess extends ManagedProcessLike {
+  process: ChildProcessWithoutNullStreams;
+}
+
+interface WorkspaceFile {
+  id: string;
+  name: string;
+  content: string;
+  language: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+function spawnWorkspaceProcess(command: string, cwd: string): ChildProcessWithoutNullStreams {
+  const shell = IS_WINDOWS ? 'cmd' : 'sh';
+  const shellArgs = IS_WINDOWS ? ['/c', command] : ['-c', command];
+
+  return spawn(shell, shellArgs, {
+    cwd,
+    env: { ...process.env, FORCE_COLOR: '0', CI: 'true', NONINTERACTIVE: '1' },
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+}
+
+function executeWorkspaceCommand(command: string, cwd: string, options: {
   timeout?: number;
   onData?: (chunk: string) => void;
-}): Promise<{ output: string; exitCode: number }> {
+  background?: boolean;
+  kind?: 'dev-server';
+  onPort?: (port: number) => void;
+}): Promise<{ output: string; exitCode: number; port?: number }> {
   return new Promise((resolve, reject) => {
-    const shell = IS_WINDOWS ? 'cmd' : 'sh';
-    const shellArgs = IS_WINDOWS ? ['/c', command] : ['-c', command];
-
-    const child = spawn(shell, shellArgs, {
-      cwd,
-      env: { ...process.env, FORCE_COLOR: '0', CI: 'true', NONINTERACTIVE: '1' },
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-
+    const child = spawnWorkspaceProcess(command, cwd);
     let output = '';
+    let detectedPort: number | undefined;
+    let resolved = false;
     const timeout = options.timeout || 120000;
+    const managedEntry: ManagedProcess | null = options.background && options.kind === 'dev-server'
+      ? {
+          pid: child.pid!,
+          command,
+          kind: 'dev-server' as const,
+          process: child,
+          spawnedAt: Date.now(),
+        }
+      : null;
+
+    if (managedEntry) {
+      managedProcesses.set(child.pid!, managedEntry);
+    }
+
     const timer = setTimeout(() => {
+      if (options.background) {
+        if (!resolved) {
+          resolved = true;
+          resolve({ output: output || '(no output)', exitCode: 0, port: detectedPort });
+        }
+        return;
+      }
+
       child.kill('SIGTERM');
       reject(new Error(`Command timed out after ${timeout / 1000}s`));
-    }, timeout);
+    }, options.background ? 30000 : timeout);
 
     child.stdout.on('data', (data: Buffer) => {
       const chunk = data.toString();
       output += chunk;
       options.onData?.(chunk);
+      if (options.background && !detectedPort) {
+        detectedPort = detectPortFromOutput(chunk);
+        if (detectedPort) {
+          if (managedEntry) {
+            managedEntry.port = detectedPort;
+          }
+          options.onPort?.(detectedPort);
+          clearTimeout(timer);
+          setTimeout(() => {
+            if (!resolved) {
+              resolved = true;
+              resolve({ output: output || '(no output)', exitCode: 0, port: detectedPort });
+            }
+          }, 1000);
+        }
+      }
     });
 
     child.stderr.on('data', (data: Buffer) => {
       const chunk = data.toString();
       output += chunk;
       options.onData?.(chunk);
+      if (options.background && !detectedPort) {
+        detectedPort = detectPortFromOutput(chunk);
+        if (detectedPort) {
+          if (managedEntry) {
+            managedEntry.port = detectedPort;
+          }
+          options.onPort?.(detectedPort);
+          clearTimeout(timer);
+          setTimeout(() => {
+            if (!resolved) {
+              resolved = true;
+              resolve({ output: output || '(no output)', exitCode: 0, port: detectedPort });
+            }
+          }, 1000);
+        }
+      }
     });
 
     child.on('close', (code) => {
       clearTimeout(timer);
-      resolve({ output: output || '(no output)', exitCode: code ?? 1 });
+      if (managedEntry) {
+        managedProcesses.delete(child.pid!);
+      }
+      if (!resolved) {
+        resolved = true;
+        resolve({ output: output || '(no output)', exitCode: code ?? 1, port: detectedPort });
+      }
     });
 
     child.on('error', (err) => {
       clearTimeout(timer);
+      if (managedEntry) {
+        managedProcesses.delete(child.pid!);
+      }
+      if (options.background) {
+        if (!resolved) {
+          resolved = true;
+          resolve({ output: `Spawn error: ${err.message}`, exitCode: 1, port: detectedPort });
+        }
+        return;
+      }
+
       reject(err);
     });
   });
 }
 
-// --- Process Manager for long-running dev servers ---
-const managedProcesses = new Map<number, { pid: number; command: string; port?: number; process: any; spawnedAt: number }>();
+const managedProcesses = new Map<number, ManagedProcess>();
 
 function killManagedProcess(pid: number) {
   const entry = managedProcesses.get(pid);
@@ -101,83 +197,69 @@ function killAllManagedProcesses() {
   }
 }
 
-function killProcessOnPort(port: number) {
-  for (const [pid, entry] of managedProcesses) {
-    if (entry.port === port) {
-      killManagedProcess(pid);
-      return;
-    }
-  }
+function getManagedProcessSnapshot(): ManagedProcessLike[] {
+  return Array.from(managedProcesses.values()).map((processInfo) => ({
+    pid: processInfo.pid,
+    command: processInfo.command,
+    kind: processInfo.kind,
+    port: processInfo.port,
+    spawnedAt: processInfo.spawnedAt,
+  }));
 }
 
-// Cleanup on server shutdown
+async function isPortAvailable(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const tester = net.createServer();
+
+    tester.once('error', () => {
+      resolve(false);
+    });
+
+    tester.once('listening', () => {
+      tester.close(() => resolve(true));
+    });
+
+    tester.listen(port, '127.0.0.1');
+  });
+}
+
 process.on('SIGTERM', killAllManagedProcesses);
 process.on('SIGINT', killAllManagedProcesses);
 
-const DEV_SERVER_PATTERN = /(npm run dev|npm run start|npx vite|next dev|node server|nodemon)/i;
-const PORT_PATTERN = /(?:localhost|127\.0\.0\.1|0\.0\.0\.0):(\d+)|port\s+(\d+)|http:\/\/[^:]+:(\d+)/i;
+async function getWorkspaceFiles(dir: string = WORKSPACE_DIR, relativePath: string = ''): Promise<WorkspaceFile[]> {
+  const entries = await fs.readdir(dir, { withFileTypes: true });
+  const files: WorkspaceFile[] = [];
 
-function spawnDevServer(command: string, cwd: string, options: {
-  onData?: (chunk: string) => void;
-  onPort?: (port: number) => void;
-}): Promise<{ output: string; port?: number }> {
-  return new Promise((resolve) => {
-    const shell = IS_WINDOWS ? 'cmd' : 'sh';
-    const shellArgs = IS_WINDOWS ? ['/c', command] : ['-c', command];
+  for (const entry of entries) {
+    if (FILE_SKIP.has(entry.name)) {
+      continue;
+    }
 
-    const child = spawn(shell, shellArgs, {
-      cwd,
-      env: { ...process.env, FORCE_COLOR: '0' },
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
+    const fullPath = path.join(dir, entry.name);
+    const relPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
 
-    let output = '';
-    let detectedPort: number | undefined;
-    let resolved = false;
+    if (entry.isDirectory()) {
+      files.push(...await getWorkspaceFiles(fullPath, relPath));
+      continue;
+    }
 
-    const entry: { pid: number; command: string; port?: number; process: any; spawnedAt: number } = { pid: child.pid!, command, process: child, spawnedAt: Date.now() };
-    managedProcesses.set(child.pid!, entry);
+    try {
+      const stat = await fs.stat(fullPath);
+      const content = await fs.readFile(fullPath, 'utf-8');
+      files.push({
+        id: relPath,
+        name: relPath,
+        content,
+        language: detectLanguage(entry.name),
+        createdAt: stat.birthtimeMs || Date.now(),
+        updatedAt: stat.mtimeMs || Date.now(),
+      });
+    } catch {
+      continue;
+    }
+  }
 
-    child.on('error', (err) => {
-      if (!resolved) { resolved = true; resolve({ output: `Spawn error: ${err.message}`, port: undefined }); }
-    });
-
-    const finish = () => {
-      if (resolved) return;
-      resolved = true;
-      resolve({ output, port: detectedPort });
-    };
-
-    // Auto-resolve after 30s even if no port detected
-    const timer = setTimeout(finish, 30000);
-
-    const handleData = (data: Buffer) => {
-      const chunk = data.toString();
-      output += chunk;
-      options.onData?.(chunk);
-
-      if (!detectedPort) {
-        const match = chunk.match(PORT_PATTERN);
-        if (match) {
-          detectedPort = parseInt(match[1] || match[2] || match[3]);
-          entry.port = detectedPort;
-          options.onPort?.(detectedPort);
-          clearTimeout(timer);
-          // Give a moment for server to be fully ready
-          setTimeout(finish, 1000);
-        }
-      }
-    };
-
-    child.stdout.on('data', handleData);
-    child.stderr.on('data', handleData);
-
-    child.on('close', () => {
-      managedProcesses.delete(child.pid!);
-      clearTimeout(timer);
-      finish();
-    });
-  });
+  return files.sort((left, right) => left.id.localeCompare(right.id));
 }
 
 async function startServer() {
@@ -464,7 +546,7 @@ async function startServer() {
         return a.name.localeCompare(b.name);
       });
       for (const e of sorted) {
-        if (['.git', 'node_modules', 'dist', 'build', '.next'].includes(e.name)) continue;
+        if (FILE_SKIP.has(e.name)) continue;
         const isDir = e.isDirectory();
         result += `${'  '.repeat(depth)}${isDir ? '📂' : '📄'} ${e.name}\n`;
         if (isDir) {
@@ -480,13 +562,13 @@ async function startServer() {
     const allContent = messages.map(m => m.content || '').join(' ').toLowerCase();
     
     if (allContent.match(/(ui|ux|design|css|tailwind|frontend|react|component|styling|button|layout)/)) {
-      return "ROLE: FRONTEND_EXPERT. Sıkı bir UI/UX yeteneğine sahipsin. Modern animasyonlar, tailwind css 4, glassmorphism vb. hakimsin.";
+      return "ROLE: FRONTEND_EXPERT. You are a UI/UX specialist with expertise in modern animations, Tailwind CSS, and responsive design.";
     } else if (allContent.match(/(backend|server|api|database|sql|express|node|auth|security|docker|endpoint)/)) {
-      return "ROLE: BACKEND_EXPERT. Sistem mimarisi, Express, Node.js veritabanları ve performans optimizasyonlarında en iyi yeteneksizsin.";
+      return "ROLE: BACKEND_EXPERT. You are a systems architect with expertise in Express, Node.js, databases, and performance optimization.";
     } else if (allContent.match(/(bug|error|fix|debug|crash|fail|hatas)/)) {
-      return "ROLE: DEBUG_EXPERT. Hatayı değil, hatanın kök nedenini bulan sistematik bir problem çözücüsün.";
+      return "ROLE: DEBUG_EXPERT. You are a systematic problem solver who finds root causes, not symptoms.";
     }
-    return "ROLE: FULLSTACK_ORCHESTRATOR. Uygulamayı sıfırdan oluşturma ve mimari planlama konularında en yetkin lidersin.";
+    return "ROLE: FULLSTACK_ORCHESTRATOR. You are the lead architect for building applications from scratch.";
   }
 
   // --- Memory Helper ---
@@ -713,15 +795,24 @@ async function startServer() {
 
       const systemPrompt = {
         role: 'system',
-        content: contextPrompt + 'You are an elite enterprise-grade AI cloud development environment (similar to Cursor, Lovable, or Bolt).\n\n' +
-        'CRITICAL CODING STANDARDS (NO MOCK APPS):\n' +
-        '1. ABSOLUTELY NO HTML/JS MOCKUPS. NEVER generate simple plain HTML files for UI requests.\n' +
-        '2. You MUST build REAL applications. Use `run_command` to execute `npx create-vite@latest . --template react-ts`, `npm install`, and configure a full React+Tailwind ecosystem.\n' +
-        '3. When the user asks for a feature, use standard Node.js practices (e.g. `npm install package_name`), write `.tsx` modular components, structure a real `src/` folder, and produce production-ready code. Do NOT fake functionality.\n\n' +
-        'CRITICAL SELF-CORRECTION PROTOCOL:\n' +
-        '1. When you create (create_file) or modify (edit_file) any .ts, .tsx, .js, or .jsx file, you MUST immediately use the "run_command" tool to run `npm run lint` or `npx tsc --noEmit` to verify code correctness. Do NOT skip this.\n' +
-        '2. If the check fails, analyze the error and fix it immediately.\n' +
-        '3. If you fail to fix the error after 3 attempts, STOP and report the error to the user honestly.'
+        content: contextPrompt +
+          'You are a full-stack development environment running on a real server.\n\n' +
+          'ENVIRONMENT:\n' +
+          '- CWD: project-workspace/\n' +
+          '- Real Node.js runtime, real npm/npx, real filesystem\n' +
+          '- All shell commands work natively\n\n' +
+          'RULES:\n' +
+          '1. Always build REAL applications using React, Next.js, Vite, TypeScript, and Tailwind when appropriate.\n' +
+          '2. First use run_command to scaffold real projects, then create_file or edit_file for code changes.\n' +
+          '3. Use install_package for dependencies whenever possible.\n' +
+          '4. Use read_file before editing existing files.\n' +
+          '5. Run npm run dev when the app should be previewable.\n' +
+          '6. After creating or editing .ts, .tsx, .js, or .jsx files, run npx tsc --noEmit and fix errors immediately.\n\n' +
+          'DO NOT:\n' +
+          '- Create plain HTML or JS mockups for app requests\n' +
+          '- Build fake applications\n' +
+          '- Put everything in a single file\n' +
+          '- Skip error checking'
       };
       let conversationMessages: any[] = [systemPrompt, ...messages];
 
@@ -800,9 +891,34 @@ async function startServer() {
             } else if (toolCall.function.name === 'run_command') {
               send({ type: 'command_start', command: args.command });
               try {
-                if (DEV_SERVER_PATTERN.test(args.command)) {
-                  // Long-running dev server — spawn as background process
-                  const { output, port } = await spawnDevServer(args.command, WORKSPACE_DIR, {
+                if (isDevServerCommand(args.command)) {
+                  const preflight = await preflightDevServerStart(
+                    args.command,
+                    getManagedProcessSnapshot(),
+                    isPortAvailable,
+                  );
+
+                  if (preflight.error) {
+                    send({ type: 'command_output', command: args.command, output: `${preflight.error}\n`, error: true });
+                    result = `Command error: ${preflight.error}`;
+                    continue;
+                  }
+
+                  for (const pid of preflight.killPids) {
+                    killManagedProcess(pid);
+                  }
+
+                  if (preflight.killPids.length > 0) {
+                    send({
+                      type: 'command_output',
+                      command: args.command,
+                      output: `Stopped ${preflight.killPids.length} existing managed dev server process(es).\n`,
+                    });
+                  }
+
+                  const { output, port } = await executeWorkspaceCommand(args.command, WORKSPACE_DIR, {
+                    background: true,
+                    kind: 'dev-server',
                     onData: (chunk) => send({ type: 'command_output', command: args.command, output: chunk }),
                     onPort: (p) => send({ type: 'server_started', port: p }),
                   });
@@ -810,8 +926,7 @@ async function startServer() {
                     ? `Dev server started on port ${port}. Output: ${output.slice(-500)}`
                     : `Server started but port not detected. Output: ${output.slice(-500)}`;
                 } else {
-                  // Short-lived command — wait for completion
-                  const { output, exitCode } = await spawnCommand(args.command, WORKSPACE_DIR, {
+                  const { output, exitCode } = await executeWorkspaceCommand(args.command, WORKSPACE_DIR, {
                     timeout: 120000,
                     onData: (chunk) => send({ type: 'command_output', command: args.command, output: chunk }),
                   });
@@ -825,15 +940,16 @@ async function startServer() {
                 result = `Command error: ${errMsg}`;
               }
             } else if (toolCall.function.name === 'read_file') {
-              const fullPath = path.join(WORKSPACE_DIR, args.filename);
-              result = await fs.readFile(fullPath, 'utf-8').catch(() => 'File not found');
+              const fullPath = safePath(args.filename);
+              result = fullPath
+                ? await fs.readFile(fullPath, 'utf-8').catch(() => 'File not found')
+                : 'Invalid file path';
             } else if (toolCall.function.name === 'list_files') {
               const fileList: string[] = [];
-              const LIST_SKIP = new Set(['.git', 'node_modules', 'dist', 'build', '.next']);
               async function listDir(dir: string, rel: string = '') {
                 const entries = await fs.readdir(dir, { withFileTypes: true });
                 for (const e of entries) {
-                  if (LIST_SKIP.has(e.name)) continue;
+                  if (FILE_SKIP.has(e.name)) continue;
                   const relPath = rel ? `${rel}/${e.name}` : e.name;
                   if (e.isDirectory()) await listDir(path.join(dir, e.name), relPath);
                   else fileList.push(relPath);
@@ -892,7 +1008,7 @@ async function startServer() {
               const command = `npm install ${devFlag} ${packages}`.trim();
               send({ type: 'command_start', command });
               try {
-                const { output, exitCode } = await spawnCommand(command, WORKSPACE_DIR, {
+                const { output, exitCode } = await executeWorkspaceCommand(command, WORKSPACE_DIR, {
                   timeout: 120000,
                   onData: (chunk) => send({ type: 'command_output', command, output: chunk }),
                 });
@@ -910,7 +1026,7 @@ async function startServer() {
               async function searchInDir(dir: string, rel: string = '') {
                 const entries = await fs.readdir(dir, { withFileTypes: true });
                 for (const e of entries) {
-                  if (e.name === '.git' || e.name === 'node_modules') continue;
+                  if (FILE_SKIP.has(e.name)) continue;
                   const relPath = rel ? `${rel}/${e.name}` : e.name;
                   const fullPath = path.join(dir, e.name);
                   if (e.isDirectory()) {
@@ -954,34 +1070,7 @@ async function startServer() {
   // --- File System API ---
   app.get("/api/files", async (req, res) => {
     try {
-      const files: any[] = [];
-      const SKIP = new Set(['.git', 'node_modules', 'dist', 'build', '.next']);
-
-      async function readDirRecursive(dir: string, relativePath: string = "") {
-        const entries = await fs.readdir(dir, { withFileTypes: true });
-        for (const entry of entries) {
-          if (SKIP.has(entry.name)) continue;
-          const fullPath = path.join(dir, entry.name);
-          const relPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
-          if (entry.isDirectory()) {
-            await readDirRecursive(fullPath, relPath);
-          } else {
-            let content: string;
-            try {
-              content = await fs.readFile(fullPath, "utf-8");
-            } catch {
-              continue; // skip unreadable / binary files
-            }
-            files.push({
-              id: relPath,
-              name: relPath,  // FIXED: full relative path, not basename
-              content,
-              language: detectLanguage(entry.name),
-            });
-          }
-        }
-      }
-      await readDirRecursive(WORKSPACE_DIR);
+      const files = await getWorkspaceFiles();
       res.json({ files });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -1015,9 +1104,7 @@ async function startServer() {
 
   // --- Process Manager API ---
   app.get("/api/processes", (req, res) => {
-    const processes = Array.from(managedProcesses.values()).map(p => ({
-      pid: p.pid, command: p.command, port: p.port, spawnedAt: p.spawnedAt
-    }));
+    const processes = getManagedProcessSnapshot();
     res.json({ processes });
   });
 
@@ -1235,7 +1322,9 @@ async function startServer() {
     res.setHeader("Connection", "keep-alive");
 
     // Parse command — use shell for full command support
-    const child = spawn("sh", ["-c", command], {
+    const shell = IS_WINDOWS ? "cmd" : "sh";
+    const shellArgs = IS_WINDOWS ? ["/c", command] : ["-c", command];
+    const child = spawn(shell, shellArgs, {
       cwd: WORKSPACE_DIR,
       env: { ...process.env, FORCE_COLOR: "0", HOME: process.env.HOME || "/root" },
     });
@@ -1258,6 +1347,64 @@ async function startServer() {
     child.on("error", (err) => {
       res.write(`data: ${JSON.stringify({ type: "error", text: err.message })}\n\n`);
       res.end();
+    });
+  });
+
+  const httpServer = createHttpServer(app);
+  const terminalServer = new WebSocketServer({ noServer: true });
+
+  terminalServer.on("connection", (socket) => {
+    const shell = IS_WINDOWS ? "powershell.exe" : "bash";
+    const child = spawn(shell, [], {
+      cwd: WORKSPACE_DIR,
+      env: { ...process.env, FORCE_COLOR: "0" },
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    child.stdout.on("data", (data: Buffer) => {
+      if (socket.readyState === socket.OPEN) {
+        socket.send(data.toString());
+      }
+    });
+
+    child.stderr.on("data", (data: Buffer) => {
+      if (socket.readyState === socket.OPEN) {
+        socket.send(data.toString());
+      }
+    });
+
+    child.on("error", (error) => {
+      if (socket.readyState === socket.OPEN) {
+        socket.send(`\r\nTerminal error: ${error.message}\r\n`);
+      }
+    });
+
+    child.on("close", (code) => {
+      if (socket.readyState === socket.OPEN) {
+        socket.send(`\r\nProcess exited with code ${code ?? 0}\r\n`);
+        socket.close();
+      }
+    });
+
+    socket.on("message", (data) => {
+      child.stdin.write(data.toString());
+    });
+
+    socket.on("close", () => {
+      try {
+        child.kill("SIGTERM");
+      } catch {}
+    });
+  });
+
+  httpServer.on("upgrade", (request, socket, head) => {
+    if (request.url !== "/api/terminal") {
+      socket.destroy();
+      return;
+    }
+
+    terminalServer.handleUpgrade(request, socket, head, (ws) => {
+      terminalServer.emit("connection", ws, request);
     });
   });
 
@@ -1319,7 +1466,7 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 AI Code Studio running on http://localhost:${PORT}`);
     console.log(`📁 Workspace: ${WORKSPACE_DIR}`);
     console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);

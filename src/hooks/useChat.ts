@@ -2,6 +2,11 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import type { ChatMessage, FileItem } from '../types';
 import { detectLanguage } from '../constants';
 import { sendChatMessage } from '../services/api';
+import { loadUiState, saveUiState } from '../utils/persistence';
+
+const DEFAULT_CHAT_MESSAGES: ChatMessage[] = [
+  { id: '0', role: 'model', text: 'Welcome to AI Code Studio Pro! I can help you write, explain, or debug your code. How can I assist you today?' },
+];
 
 export function useChat(
   activeFile: FileItem | undefined,
@@ -15,17 +20,47 @@ export function useChat(
   selectedCode: string,
   setRightPanelOpen: React.Dispatch<React.SetStateAction<boolean>>,
 ) {
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
-    { id: '0', role: 'model', text: 'Welcome to AI Code Studio Pro! I can help you write, explain, or debug your code. How can I assist you today?' }
-  ]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(DEFAULT_CHAT_MESSAGES);
   const [chatInput, setChatInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const hasHydratedChatRef = useRef(false);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    (window as any)._chatMessages = chatMessages;
-    (window as any)._setChatMessages = setChatMessages;
+  }, [chatMessages]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    void (async () => {
+      try {
+        const snapshot = await loadUiState();
+        if (isCancelled) {
+          return;
+        }
+
+        if (snapshot?.chatMessages && snapshot.chatMessages.length > 0) {
+          setChatMessages(snapshot.chatMessages);
+        }
+      } catch (error) {
+        console.error('Failed to restore chat state', error);
+      } finally {
+        hasHydratedChatRef.current = true;
+      }
+    })();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hasHydratedChatRef.current) {
+      return;
+    }
+
+    void saveUiState({ chatMessages });
   }, [chatMessages]);
 
   const applyFilesFromResponse = useCallback(async (responseText: string) => {

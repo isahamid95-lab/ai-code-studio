@@ -53,6 +53,7 @@ const FileExplorer = React.memo(function FileExplorer({
   };
 
   const closeContextMenu = () => setContextMenuFileId(null);
+  const sortedFiles = [...files].sort((left, right) => left.name.localeCompare(right.name));
 
   return (
     <>
@@ -134,7 +135,18 @@ const FileExplorer = React.memo(function FileExplorer({
       )}
 
       {/* File List */}
-      {files.map(file => (
+      {sortedFiles.length === 0 && !isCreatingFile && (
+        <div className="px-4 py-3 text-[12px] text-text/30">
+          Empty workspace
+        </div>
+      )}
+
+      {sortedFiles.map(file => {
+        const segments = file.name.split('/');
+        const basename = segments[segments.length - 1];
+        const depth = segments.length - 1;
+
+        return (
         <div
           key={file.id}
           onClick={() => onOpenFile(file.id)}
@@ -144,10 +156,11 @@ const FileExplorer = React.memo(function FileExplorer({
               ? 'bg-primary/8 text-text/90 border-l-2 border-primary'
               : 'text-text/50 hover:bg-white/[0.03] hover:text-text/70 border-l-2 border-transparent'
           }`}
+          style={{ paddingLeft: `${16 + depth * 14}px` }}
         >
           <div className="flex items-center gap-2.5 overflow-hidden">
             <FileCode2 size={13} className={activeTabId === file.id ? 'text-primary' : getFileIconColor(file.name)} />
-            <span className="truncate font-medium">{file.name}</span>
+            <span className="truncate font-medium">{basename}</span>
           </div>
           <button
             onClick={(e) => {
@@ -160,7 +173,7 @@ const FileExplorer = React.memo(function FileExplorer({
             <Trash2 size={12} />
           </button>
         </div>
-      ))}
+      )})}
     </>
   );
 });

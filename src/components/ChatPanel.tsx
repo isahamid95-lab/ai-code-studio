@@ -236,6 +236,15 @@ const ChatPanel = React.memo(function ChatPanel({
                     <div className="bg-white/[0.06] inline-block px-3.5 py-2.5 rounded-2xl rounded-tr-md text-left text-[13px] leading-relaxed text-text/90 max-w-[90%]">
                       {msg.displayText || msg.text}
                     </div>
+                  ) : msg.variant === 'plan' ? (
+                    <div className="rounded-2xl border border-amber-400/20 bg-amber-500/8 px-3.5 py-3">
+                      <div className="mb-2 inline-flex items-center rounded-full border border-amber-400/20 bg-amber-500/12 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-amber-300">
+                        Plan
+                      </div>
+                      <div className="text-[13px] leading-relaxed text-text/85 markdown-body">
+                        <Markdown>{msg.text}</Markdown>
+                      </div>
+                    </div>
                   ) : parts ? (
                     <div className="space-y-2">
                       {parts.map((part, i) => (

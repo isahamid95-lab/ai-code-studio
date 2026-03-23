@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, Suspense, useRef } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { javascript } from '@codemirror/lang-javascript';
 import { css } from '@codemirror/lang-css';
@@ -36,6 +36,7 @@ import { SearchPanel } from './components/SearchPanel';
 import { SymbolOutline } from './components/SymbolOutline';
 import { AIIntelPanel } from './components/AIIntelPanel';
 import { MCPServersPanel } from './components/MCPServersPanel';
+import { loadUiState, saveUiState } from './utils/persistence';
 
 const getLanguageExtension = (lang: Language) => {
   switch (lang) {
@@ -68,27 +69,15 @@ export default function App() {
   const [isThemeSelectorOpen, setIsThemeSelectorOpen] = useState(false);
   const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
   const [alibabaApiKey, setAlibabaApiKey] = useState(import.meta.env.VITE_ALIBABA_API_KEY || '');
-  const [alibabaModel, setAlibabaModel] = useState('qwen3-coder-plus');
+  const [alibabaModel, setAlibabaModel] = useState('qwen-plus');
 
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewPort, setPreviewPort] = useState<number | null>(null);
   const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
-  const [isScaffolding, setIsScaffolding] = useState(false);
   const [tabContextMenu, setTabContextMenu] = useState<{ x: number, y: number, id: string } | null>(null);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
-
-  const handleSelectTemplate = async (cmd: string) => {
-    setIsScaffolding(true);
-    try {
-      const { getWebContainer } = await import('./lib/webcontainer');
-      const wc = await getWebContainer();
-      const process = await wc.spawn('jsh', ['-c', cmd]);
-      await process.exit;
-    } catch (e) {
-      console.error('Template scaffold failed', e);
-    } finally {
-      setIsScaffolding(false);
-    }
-  };
+  const hasHydratedLayoutRef = useRef(false);
 
   const fileHook = useFiles();
   const gitHook = useGit(
@@ -108,14 +97,22 @@ export default function App() {
     fileHook.selectedCode,
     setRightPanelOpen,
   );
-  const agentHook = useAgent(
-    alibabaModel,
-    fileHook.applyFileFromAgent,
-    chatHook.setChatMessages,
-    chatHook.setIsGenerating,
-    fileHook.files,
-    fileHook.fetchFiles,
-  );
+  const agentHook = useAgent({
+    model: alibabaModel,
+    files: fileHook.files,
+    activeFileId: fileHook.activeTabId,
+    setChatMessages: chatHook.setChatMessages,
+    setIsGenerating: chatHook.setIsGenerating,
+    setIsAgentRunning: fileHook.setIsAgentRunning,
+    setTerminalOutput: fileHook.setTerminalOutput,
+    setIsTerminalOpen: fileHook.setIsTerminalOpen,
+    onRefreshFiles: fileHook.fetchFiles,
+    onServerStarted: (port) => {
+      setPreviewPort(port);
+      setPreviewUrl(`http://localhost:${port}`);
+      setIsPreviewOpen(true);
+    },
+  });
 
   useEffect(() => {
     gitHook.fetchGitStatus();
@@ -127,6 +124,51 @@ export default function App() {
       applyTheme(storedTheme)
     }
   }, [])
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    void (async () => {
+      try {
+        const snapshot = await loadUiState();
+        if (isCancelled || !snapshot) {
+          return;
+        }
+
+        if (typeof snapshot.leftPanelOpen === 'boolean') {
+          setLeftPanelOpen(snapshot.leftPanelOpen);
+        }
+
+        if (typeof snapshot.rightPanelOpen === 'boolean') {
+          setRightPanelOpen(snapshot.rightPanelOpen);
+        }
+
+        if (snapshot.leftPanelTab && ACTIVITY_ITEMS.some((item) => item.id === snapshot.leftPanelTab)) {
+          setLeftPanelTab(snapshot.leftPanelTab as LeftTab);
+        }
+      } catch (error) {
+        console.error('Failed to restore layout state', error);
+      } finally {
+        hasHydratedLayoutRef.current = true;
+      }
+    })();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hasHydratedLayoutRef.current) {
+      return;
+    }
+
+    void saveUiState({
+      leftPanelOpen,
+      rightPanelOpen,
+      leftPanelTab,
+    });
+  }, [leftPanelOpen, leftPanelTab, rightPanelOpen]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -497,46 +539,36 @@ export default function App() {
               ) : (
                 <div className="flex-1 flex flex-col items-center justify-center">
                   {fileHook.files.length === 0 ? (
-                    isScaffolding ? (
-                      <div className="flex flex-col items-center">
-                        <Loader2 size={40} className="mb-5 animate-spin text-primary" />
-                        <p className="text-sm text-text/50 font-medium text-center">
-                          Setting up environment...
-                        </p>
-                        <p className="text-xs text-text/25 mt-1">Installing packages</p>
+                    <div className="flex flex-col items-center">
+                      <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.04] mb-6">
+                        <Code2 size={40} className="text-primary/40" />
                       </div>
-                    ) : (
-                      <div className="flex flex-col items-center">
-                        <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.04] mb-6">
-                          <Code2 size={40} className="text-primary/40" />
-                        </div>
-                        <p className="text-sm font-medium text-text/50 mb-1">Start building</p>
-                        <p className="text-xs text-text/25 mb-8">Choose a framework or start from scratch</p>
-                        <div className="flex gap-3">
-                          <button
-                            onClick={() => handleSelectTemplate('npx -y create-vite@latest temp-app --template react-ts && cp -r temp-app/. ./ && rm -rf temp-app && npm install')}
-                            className="glass-panel px-5 py-3.5 rounded-xl hover:bg-white/[0.06] transition-all flex flex-col items-center gap-1.5 cursor-pointer group"
-                          >
-                            <span className="text-sm text-primary font-semibold group-hover:text-primary/80">React</span>
-                            <span className="text-[10px] text-text/25">Vite + HMR</span>
-                          </button>
-                          <button
-                            onClick={() => handleSelectTemplate('npx -y create-next-app@latest temp-app --ts --tailwind --eslint --app --use-npm --src-dir && cp -r temp-app/. ./ && rm -rf temp-app')}
-                            className="glass-panel px-5 py-3.5 rounded-xl hover:bg-white/[0.06] transition-all flex flex-col items-center gap-1.5 cursor-pointer group"
-                          >
-                            <span className="text-sm text-text/70 font-semibold group-hover:text-text/90">Next.js</span>
-                            <span className="text-[10px] text-text/25">Full-stack</span>
-                          </button>
-                          <button
-                            onClick={() => handleSelectTemplate('npm init -y && echo "console.log(\'Hello World\');" > index.js && echo "node_modules\\n.git" > .gitignore')}
-                            className="glass-panel px-5 py-3.5 rounded-xl hover:bg-white/[0.06] transition-all flex flex-col items-center gap-1.5 cursor-pointer group"
-                          >
-                            <span className="text-sm text-emerald-400 font-semibold group-hover:text-emerald-400/80">Node.js</span>
-                            <span className="text-[10px] text-text/25">Blank</span>
-                          </button>
-                        </div>
+                      <p className="text-sm font-medium text-text/50 mb-1">Start building</p>
+                      <p className="text-xs text-text/25 mb-8">Use the agent to scaffold a real project on the server</p>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => agentHook.sendAgentMessage('Create a new React + TypeScript + Tailwind project', 'agent')}
+                          className="glass-panel px-5 py-3.5 rounded-xl hover:bg-white/[0.06] transition-all flex flex-col items-center gap-1.5 cursor-pointer group"
+                        >
+                          <span className="text-sm text-primary font-semibold group-hover:text-primary/80">React</span>
+                          <span className="text-[10px] text-text/25">Vite + Tailwind</span>
+                        </button>
+                        <button
+                          onClick={() => agentHook.sendAgentMessage('Create a new Next.js + TypeScript + Tailwind project', 'agent')}
+                          className="glass-panel px-5 py-3.5 rounded-xl hover:bg-white/[0.06] transition-all flex flex-col items-center gap-1.5 cursor-pointer group"
+                        >
+                          <span className="text-sm text-text/70 font-semibold group-hover:text-text/90">Next.js</span>
+                          <span className="text-[10px] text-text/25">App Router</span>
+                        </button>
+                        <button
+                          onClick={() => agentHook.sendAgentMessage('Create a new Node.js starter project', 'agent')}
+                          className="glass-panel px-5 py-3.5 rounded-xl hover:bg-white/[0.06] transition-all flex flex-col items-center gap-1.5 cursor-pointer group"
+                        >
+                          <span className="text-sm text-emerald-400 font-semibold group-hover:text-emerald-400/80">Node.js</span>
+                          <span className="text-[10px] text-text/25">Server app</span>
+                        </button>
                       </div>
-                    )
+                    </div>
                   ) : (
                     <div className="flex flex-col items-center">
                       <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.04] mb-5">
@@ -562,6 +594,12 @@ export default function App() {
                 {isPreviewOpen && (
                   <PreviewPanel
                     onClose={() => setIsPreviewOpen(false)}
+                    previewUrl={previewUrl}
+                    previewPort={previewPort}
+                    onPreviewUnavailable={() => {
+                      setPreviewUrl(null);
+                      setPreviewPort(null);
+                    }}
                   />
                 )}
               </AnimatePresence>
@@ -575,6 +613,8 @@ export default function App() {
               {fileHook.isTerminalOpen && (
                 <TerminalPanel
                   onClose={() => fileHook.setIsTerminalOpen(false)}
+                  logs={fileHook.terminalOutput}
+                  isAgentRunning={fileHook.isAgentRunning}
                 />
               )}
             </AnimatePresence>

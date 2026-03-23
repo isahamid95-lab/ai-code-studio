@@ -18,6 +18,7 @@ export interface ChatMessage {
   timestamp?: number;
   isHidden?: boolean;
   displayText?: string;
+  variant?: 'default' | 'plan';
 }
 
 export interface GitStatus {
@@ -39,6 +40,25 @@ export interface LogEntry {
   type: 'info' | 'success' | 'error' | 'warning';
   text: string;
   timestamp?: number;
+}
+
+export interface AgentEvent {
+  type: 'plan' | 'text' | 'file_created' | 'file_edited' | 'file_deleted' | 'command_start' | 'command_output' | 'tool_call' | 'server_started' | 'error' | 'done';
+  content?: string;
+  filename?: string;
+  command?: string;
+  output?: string;
+  port?: number;
+  tool?: string;
+  error?: boolean;
+}
+
+export interface ProcessInfo {
+  pid: number;
+  command: string;
+  kind: 'dev-server';
+  port?: number;
+  spawnedAt: number;
 }
 
 export interface FileTemplate {

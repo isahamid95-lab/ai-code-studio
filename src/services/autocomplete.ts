@@ -1,5 +1,3 @@
-import { getWebContainer } from '@/src/lib/webcontainer'
-
 interface AutocompleteRequest {
   code: string
   cursorPosition: number
@@ -188,9 +186,14 @@ What should come after "${prefix}"? Return 3-5 likely completions as JSON array:
 
 export async function getCodeContext(filename: string): Promise<string> {
   try {
-    const wc = await getWebContainer()
-    const content = await wc.fs.readFile(filename, 'utf-8')
-    return content
+    const response = await fetch('/api/files')
+    if (!response.ok) {
+      return ''
+    }
+
+    const data = await response.json()
+    const file = data.files?.find((entry: { id: string; content: string }) => entry.id === filename)
+    return file?.content ?? ''
   } catch {
     return ''
   }

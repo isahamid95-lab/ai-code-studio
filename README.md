@@ -19,11 +19,11 @@
 ### 🎨 Core Features
 - **Intelligent Code Editor** - CodeMirror 6 with syntax highlighting
 - **AI Chat Assistant** - Real-time coding help
-- **AI Agent Mode** - Autonomous code generation
+- **AI Agent Mode** - Server-side autonomous code generation over SSE
 - **Git Integration** - Full Git workflow in the IDE
-- **Live Preview** - See changes instantly
-- **Terminal** - Built-in terminal output
-- **File Explorer** - Project file management
+- **Live Preview** - iframe preview from managed dev server ports
+- **Terminal** - Agent output plus interactive server shell
+- **File Explorer** - Server-backed project file management
 - **AI Background** - Dynamic AI-generated themes
 
 ### 🤖 Enhanced AI Features (NEW!)
@@ -158,7 +158,8 @@ Example prompts:
 ### Backend
 - **Express.js** - Server framework
 - **simple-git** - Git operations
-- **Vite Dev Server** - Hot reload
+- **ws** - Interactive terminal transport
+- **Server-first workspace** - Real filesystem + real shell commands in `project-workspace/`
 
 ### AI
 - **Alibaba Qwen3** - Primary coding AI
@@ -182,12 +183,13 @@ ai-code-studio/
 │   │   ├── useChat.ts
 │   │   ├── useFiles.ts
 │   │   ├── useGit.ts
-│   │   └── useEnhancedAgent.ts  # NEW!
+│   │   └── ...
 │   ├── services/        # API calls
 │   │   ├── api.ts
-│   │   └── api-enhanced.ts  # NEW!
+│   │   └── ...
 │   ├── types/           # TypeScript types
 │   └── App.tsx          # Main component
+├── lib/dev-server.ts    # Dev server lifecycle helpers
 ├── server.ts            # Express backend
 ├── project-workspace/   # User projects
 ├── .env.example         # Environment template
@@ -220,9 +222,6 @@ In Settings modal, choose from Qwen, Zhipu, Kimi, and MiniMax models.
 ```bash
 # Run tests
 npm test
-
-# Run E2E tests
-npm run test:e2e
 
 # Generate test coverage
 npm run test:coverage

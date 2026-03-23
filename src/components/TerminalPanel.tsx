@@ -1,35 +1,138 @@
-import React, { useState, useCallback } from 'react';
-import { X, TerminalSquare, Plus } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { TerminalSession } from './TerminalSession';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { X, TerminalSquare, FileTerminal } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Terminal } from '@xterm/xterm';
+import { FitAddon } from '@xterm/addon-fit';
+import '@xterm/xterm/css/xterm.css';
+import type { LogEntry } from '../types';
+import { createTerminalSocket } from '../services/api';
 
 interface TerminalPanelProps {
   onClose: () => void;
+  logs: LogEntry[];
+  isAgentRunning: boolean;
 }
 
-const TerminalPanel = React.memo(function TerminalPanel({ onClose }: TerminalPanelProps) {
-  const [sessions, setSessions] = useState<{ id: string; name: string }[]>([
-    { id: '1', name: 'Terminal 1' }
-  ]);
-  const [activeSessionId, setActiveSessionId] = useState('1');
+type TerminalSessionState = 'idle' | 'connecting' | 'open' | 'closed';
 
-  const addSession = useCallback(() => {
-    const nextId = (Math.max(...sessions.map(s => parseInt(s.id))) + 1).toString();
-    setSessions(prev => [...prev, { id: nextId, name: `Terminal ${nextId}` }]);
-    setActiveSessionId(nextId);
-  }, [sessions]);
+const TerminalPanel = React.memo(function TerminalPanel({ onClose, logs, isAgentRunning }: TerminalPanelProps) {
+  const [activeTab, setActiveTab] = useState<'agent' | 'terminal'>(isAgentRunning ? 'agent' : 'terminal');
+  const [terminalState, setTerminalState] = useState<TerminalSessionState>('idle');
+  const terminalRef = useRef<HTMLDivElement>(null);
+  const xtermRef = useRef<Terminal | null>(null);
+  const fitAddonRef = useRef<FitAddon | null>(null);
+  const socketRef = useRef<WebSocket | null>(null);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
 
-  const removeSession = useCallback((e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    if (sessions.length === 1) return;
-    setSessions(prev => {
-      const next = prev.filter(s => s.id !== id);
-      if (activeSessionId === id) {
-        setActiveSessionId(next[next.length - 1].id);
-      }
-      return next;
+  useEffect(() => {
+    if (isAgentRunning) {
+      setActiveTab('agent');
+    }
+  }, [isAgentRunning]);
+
+  const ensureTerminal = useCallback(() => {
+    if (!terminalRef.current || xtermRef.current) {
+      return null;
+    }
+
+    const fitAddon = new FitAddon();
+    const terminal = new Terminal({
+      theme: { background: 'transparent', foreground: '#F1F5F9' },
+      fontFamily: 'Consolas, "Courier New", monospace',
+      fontSize: 13,
+      cursorBlink: true,
+      convertEol: true,
     });
-  }, [sessions, activeSessionId]);
+
+    fitAddonRef.current = fitAddon;
+    xtermRef.current = terminal;
+    terminal.loadAddon(fitAddon);
+    terminal.open(terminalRef.current);
+    fitAddon.fit();
+
+    terminal.onData((data) => {
+      if (socketRef.current?.readyState === WebSocket.OPEN) {
+        socketRef.current.send(data);
+      }
+    });
+
+    resizeObserverRef.current = new ResizeObserver(() => {
+      fitAddonRef.current?.fit();
+    });
+    resizeObserverRef.current.observe(terminalRef.current);
+
+    return terminal;
+  }, []);
+
+  const connectTerminal = useCallback(() => {
+    const terminal = xtermRef.current ?? ensureTerminal();
+    if (!terminal || socketRef.current) {
+      return;
+    }
+
+    const socket = createTerminalSocket();
+    socketRef.current = socket;
+    setTerminalState('connecting');
+
+    socket.addEventListener('open', () => {
+      setTerminalState('open');
+      terminal.writeln('Connected to terminal');
+    });
+
+    socket.addEventListener('message', (event) => {
+      terminal.write(String(event.data));
+    });
+
+    socket.addEventListener('close', () => {
+      socketRef.current = null;
+      setTerminalState('closed');
+      terminal.writeln('\r\nTerminal disconnected');
+    });
+
+    socket.addEventListener('error', () => {
+      terminal.writeln('\r\nTerminal connection error');
+    });
+  }, [ensureTerminal]);
+
+  useEffect(() => {
+    if (activeTab === 'terminal') {
+      connectTerminal();
+    }
+  }, [activeTab, connectTerminal]);
+
+  useEffect(() => () => {
+    resizeObserverRef.current?.disconnect();
+    socketRef.current?.close();
+    xtermRef.current?.dispose();
+    resizeObserverRef.current = null;
+    socketRef.current = null;
+    xtermRef.current = null;
+    fitAddonRef.current = null;
+  }, []);
+
+  const handleTerminalTabClick = () => {
+    setActiveTab('terminal');
+    if (terminalState !== 'open') {
+      connectTerminal();
+    }
+  };
+
+  const renderedLogs = useMemo(() => logs.map((entry, index) => (
+    <div
+      key={`${entry.timestamp ?? index}-${index}`}
+      className={`whitespace-pre-wrap break-words ${
+        entry.type === 'error'
+          ? 'text-red-300'
+          : entry.type === 'success'
+            ? 'text-emerald-300'
+            : entry.type === 'warning'
+              ? 'text-amber-300'
+              : 'text-text/75'
+      }`}
+    >
+      {entry.text}
+    </div>
+  )), [logs]);
 
   return (
     <motion.div
@@ -40,41 +143,30 @@ const TerminalPanel = React.memo(function TerminalPanel({ onClose }: TerminalPan
       className="border-t border-white/[0.06] bg-background/60 backdrop-blur-md flex flex-col shrink-0 overflow-hidden"
     >
       <div className="flex items-center justify-between px-3 py-1.5 border-b border-white/[0.04] shrink-0">
-        <div className="flex items-center gap-1.5 flex-1 min-w-0 overflow-x-auto no-scrollbar">
-          <div className="flex items-center gap-1.5 text-[10px] font-semibold text-text/25 uppercase tracking-[0.15em] px-2 mr-1 shrink-0">
-            <TerminalSquare size={12} />
-            Terminal
-          </div>
-
-          {sessions.map((session) => (
-            <div
-              key={session.id}
-              onClick={() => setActiveSessionId(session.id)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium cursor-pointer transition-all shrink-0 group ${
-                activeSessionId === session.id
-                  ? 'bg-white/[0.06] text-text/70'
-                  : 'text-text/30 hover:text-text/50'
-              }`}
-            >
-              <span>{session.name}</span>
-              {sessions.length > 1 && (
-                <button
-                  onClick={(e) => removeSession(e, session.id)}
-                  className="p-0.5 rounded opacity-0 group-hover:opacity-60 hover:opacity-100 hover:bg-white/10 transition-all cursor-pointer"
-                >
-                  <X size={9} />
-                </button>
-              )}
-            </div>
-          ))}
-
+        <div className="flex items-center gap-1.5">
           <button
-            onClick={addSession}
-            className="p-1 text-text/20 hover:text-text/50 hover:bg-white/[0.04] rounded-md transition-all cursor-pointer shrink-0"
-            title="New Terminal"
+            onClick={() => setActiveTab('agent')}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer ${
+              activeTab === 'agent' ? 'bg-white/[0.06] text-text/70' : 'text-text/30 hover:text-text/50'
+            }`}
           >
-            <Plus size={12} />
+            <TerminalSquare size={12} />
+            Agent Output
           </button>
+          <button
+            onClick={handleTerminalTabClick}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer ${
+              activeTab === 'terminal' ? 'bg-white/[0.06] text-text/70' : 'text-text/30 hover:text-text/50'
+            }`}
+          >
+            <FileTerminal size={12} />
+            Terminal
+          </button>
+          {activeTab === 'terminal' && terminalState !== 'open' && (
+            <span className="text-[10px] text-text/30 uppercase tracking-[0.15em]">
+              {terminalState === 'connecting' ? 'Connecting' : terminalState === 'closed' ? 'Reconnect available' : 'Idle'}
+            </span>
+          )}
         </div>
 
         <button
@@ -87,16 +179,13 @@ const TerminalPanel = React.memo(function TerminalPanel({ onClose }: TerminalPan
       </div>
 
       <div className="flex-1 w-full overflow-hidden relative">
-        <AnimatePresence initial={false}>
-          {sessions.map(session => (
-            <TerminalSession
-              key={session.id}
-              id={session.id}
-              isActive={activeSessionId === session.id}
-              onReady={() => {}}
-            />
-          ))}
-        </AnimatePresence>
+        {activeTab === 'agent' ? (
+          <div className="h-full overflow-auto px-3 py-2 font-mono text-[12px] space-y-1">
+            {renderedLogs}
+          </div>
+        ) : (
+          <div ref={terminalRef} className="h-full w-full p-2" />
+        )}
       </div>
     </motion.div>
   );
