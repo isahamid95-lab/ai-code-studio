@@ -1519,7 +1519,7 @@ In `src/components/ChatPanel.tsx`, the `parseMessageContent` function (around li
 const fileRegex = /\n?\n?✅ \*\*(.+?)\*\* oluşturuldu/g;
 
 // WITH:
-const fileRegex = /\n?\n?✅ (?:Created|Edited|Deleted): \*\*(.+?)\*\*/g;
+const fileRegex = /\n?\n?(?:✅|✏️|🗑️) (?:Created|Edited|Deleted): \*\*(.+?)\*\*/g;
 ```
 
 This matches the new English SSE event format from useAgent.ts: `✅ Created: **filename**`, `✏️ Edited: **filename**`, `🗑️ Deleted: **filename**`.
@@ -1547,7 +1547,7 @@ Expected: No matches (except possibly test files handled in next task).
 
 ```bash
 git add -A
-git commit -m "refactor: remove WebContainer entirely, fix export/autocomplete/FileExplorer"
+git commit -m "refactor: remove WebContainer, fix export/autocomplete/FileExplorer/ChatPanel regex"
 ```
 
 ---
