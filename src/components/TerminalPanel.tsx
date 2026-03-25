@@ -6,6 +6,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import type { LogEntry } from '../types';
 import { createTerminalSocket } from '../services/api';
+import { useWebSocket } from '../hooks/useWebSocket';
 
 interface TerminalPanelProps {
   onClose: () => void;

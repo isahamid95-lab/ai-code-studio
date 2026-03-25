@@ -5,4 +5,10 @@ dist-ssr
 .env
 .env.*
 !.env.example
+
 .DS_Store
+coverage/
+.ai-memory.json
+*.tsbuildinfo
+project-workspace/
+.git/

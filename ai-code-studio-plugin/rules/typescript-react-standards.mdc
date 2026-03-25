@@ -1,0 +1,41 @@
+---
+description: TypeScript ve React best practices for AI Code Studio Pro
+alwaysApply: true
+---
+
+## TypeScript & React Standards
+
+### Component Pattern
+
+- Use functional components with explicit type annotations
+- Prefer named exports: `export default function ComponentName()`
+- Use `React.memo` for expensive components
+- Destructure props in function signature
+
+### Type Safety
+
+- Always use explicit types for function parameters and return values
+- Prefer `interface` for object shapes, `type` for unions
+- Avoid `any` - use `unknown` or specific types
+- Use nullish coalescing (`??`) over logical OR (`||`)
+
+### File Organization
+
+- One component per file
+- Name files after the component (PascalCase)
+- Keep hooks in `hooks/` directory with `use*` prefix
+- Types in `types/` directory
+
+### Styling
+
+- Use Tailwind CSS utility classes preferentially
+- Custom utilities in `src/index.css` under `@layer utilities`
+- Use `.glass-panel`, `.glass-button`, `.glass-input` for glassmorphism
+- Theme colors via CSS variables: `--color-primary`, `--color-background`
+
+### Code Style
+
+- No comments unless explicitly requested
+- Use `const` over `let`, never `var`
+- Async/await for all I/O operations
+- Wrap async operations in try-catch

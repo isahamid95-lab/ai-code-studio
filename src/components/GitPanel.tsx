@@ -64,6 +64,8 @@ const GitPanel = React.memo(function GitPanel({
     );
   }
 
+  const status = gitStatus?.status ?? { staged: [], modified: [], not_added: [], deleted: [] };
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
@@ -126,7 +128,7 @@ const GitPanel = React.memo(function GitPanel({
         />
         <button 
           onClick={onGitCommit}
-          disabled={!commitMessage.trim() || (gitStatus.status.staged.length === 0)}
+          disabled={!commitMessage.trim() || (status.staged.length === 0)}
           className="glass-button py-1.5 text-[12px] font-medium text-primary rounded-lg disabled:opacity-30 flex items-center justify-center gap-2 cursor-pointer"
         >
           <GitCommit size={13} /> Commit
@@ -137,7 +139,7 @@ const GitPanel = React.memo(function GitPanel({
 
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="text-[10px] font-semibold text-text/30 uppercase tracking-[0.15em]">Staged Changes ({gitStatus.status.staged.length})</span>
+          <span className="text-[10px] font-semibold text-text/30 uppercase tracking-[0.15em]">Staged Changes ({status.staged.length})</span>
           <button
             onClick={() => onGitUnstage('.')}
             className="text-text/25 hover:text-text/60 transition-colors cursor-pointer"
@@ -147,7 +149,7 @@ const GitPanel = React.memo(function GitPanel({
           </button>
         </div>
         <div className="flex flex-col gap-1">
-          {gitStatus.status.staged.map((file: string) => (
+          {status.staged.map((file: string) => (
             <div key={file} className="flex items-center justify-between text-[11px] text-emerald-400 px-2.5 py-1.5 bg-emerald-500/[0.06] rounded-lg">
               <span className="truncate">{file}</span>
               <button
@@ -158,13 +160,13 @@ const GitPanel = React.memo(function GitPanel({
               </button>
             </div>
           ))}
-          {gitStatus.status.staged.length === 0 && <span className="text-[11px] text-text/20 px-2">No staged changes</span>}
+          {status.staged.length === 0 && <span className="text-[11px] text-text/20 px-2">No staged changes</span>}
         </div>
       </div>
 
       <div className="flex flex-col gap-2 mt-1">
         <div className="flex items-center justify-between">
-          <span className="text-[10px] font-semibold text-text/30 uppercase tracking-[0.15em]">Changes ({gitStatus.status.modified.length + gitStatus.status.not_added.length + gitStatus.status.deleted.length})</span>
+          <span className="text-[10px] font-semibold text-text/30 uppercase tracking-[0.15em]">Changes ({status.modified.length + status.not_added.length + status.deleted.length})</span>
           <button
             onClick={() => onGitStage('.')}
             className="text-text/25 hover:text-text/60 transition-colors cursor-pointer"
@@ -174,7 +176,7 @@ const GitPanel = React.memo(function GitPanel({
           </button>
         </div>
         <div className="flex flex-col gap-1">
-          {gitStatus.status.modified.map((file: string) => (
+          {status.modified.map((file: string) => (
             <div key={file} className="flex items-center justify-between text-[11px] text-amber-400 px-2.5 py-1.5 bg-amber-500/[0.06] rounded-lg">
               <span className="truncate">{file}</span>
               <button
@@ -185,7 +187,7 @@ const GitPanel = React.memo(function GitPanel({
               </button>
             </div>
           ))}
-          {gitStatus.status.deleted.map((file: string) => (
+          {status.deleted.map((file: string) => (
             <div key={file} className="flex items-center justify-between text-[11px] text-red-400 px-2.5 py-1.5 bg-red-500/[0.06] rounded-lg">
               <span className="truncate">{file}</span>
               <button
@@ -196,7 +198,7 @@ const GitPanel = React.memo(function GitPanel({
               </button>
             </div>
           ))}
-          {gitStatus.status.not_added.map((file: string) => (
+          {status.not_added.map((file: string) => (
             <div key={file} className="flex items-center justify-between text-[11px] text-primary px-2.5 py-1.5 bg-primary/[0.06] rounded-lg">
               <span className="truncate">{file}</span>
               <button
@@ -207,7 +209,7 @@ const GitPanel = React.memo(function GitPanel({
               </button>
             </div>
           ))}
-          {(gitStatus.status.modified.length + gitStatus.status.not_added.length + gitStatus.status.deleted.length) === 0 && <span className="text-[11px] text-text/20 px-2">No changes</span>}
+          {(status.modified.length + status.not_added.length + status.deleted.length) === 0 && <span className="text-[11px] text-text/20 px-2">No changes</span>}
         </div>
       </div>
     </div>

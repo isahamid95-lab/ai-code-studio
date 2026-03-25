@@ -132,7 +132,7 @@ export async function gitPull(): Promise<{ error?: string }> {
   return parseJsonResponse(response);
 }
 
-export function sendChatMessage(model: string, messages: any[], rest: Record<string, unknown> = {}): Promise<Response> {
+export async function sendChatMessage(model: string, messages: any[], rest: Record<string, unknown> = {}): Promise<Response> {
   return fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

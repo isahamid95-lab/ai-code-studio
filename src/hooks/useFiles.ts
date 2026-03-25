@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { FileItem, LogEntry } from '../types';
 import { detectLanguage } from '../constants';
 import { fetchFilesFromServer, saveFileToServer, deleteFileFromServer, runFileOnServer } from '../services/api';
-import { loadUiState, saveUiState, type UiStateSnapshot } from '../utils/persistence';
+import { loadUiState, saveUiState, clearUiState, type UiStateSnapshot } from '../utils/persistence';
 
 function useDebouncedCallback<T extends (...args: any[]) => void>(callback: T, delay: number): T {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -119,6 +119,20 @@ export function useFiles() {
       isCancelled = true;
     };
   }, []);
+
+  // Clear stale UI state if workspace is empty
+  useEffect(() => {
+    if (persistedUiState === undefined || files.length > 0) {
+      return;
+    }
+
+    // Workspace is empty but we have stale UI state - clear it
+    if (persistedUiState !== null && (persistedUiState.openTabs?.length ?? 0) > 0) {
+      console.log('[useFiles] Clearing stale UI state - workspace is empty');
+      void clearUiState();
+      setPersistedUiState(null);
+    }
+  }, [files, persistedUiState]);
 
   useEffect(() => {
     if (persistedUiState === undefined || !hasFetchedInitialFilesRef.current || hasAppliedUiRestoreRef.current) {

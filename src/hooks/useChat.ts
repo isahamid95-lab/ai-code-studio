@@ -159,7 +159,7 @@ export function useChat(
         throw new Error("Alibaba Cloud API Key is required. Please configure it in Settings.");
       }
 
-      const response = await sendChatMessage(alibabaModel || 'qwen3-coder-plus', [
+      const response = await sendChatMessage(alibabaModel || 'qwen3.5-plus', [
           { role: 'system', content: context },
           { role: 'user', content: text }
         ]);

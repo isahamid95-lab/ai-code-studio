@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "beforeFileEdit": [
+      {
+        "command": "npm run lint",
+        "condition": "file.endsWith('.ts') || file.endsWith('.tsx')"
+      }
+    ],
+    "afterFileEdit": [
+      {
+        "command": "echo 'File saved - run tests with npm test'"
+      }
+    ]
+  }
+}

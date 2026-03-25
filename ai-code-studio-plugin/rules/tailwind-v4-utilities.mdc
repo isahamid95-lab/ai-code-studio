@@ -1,0 +1,63 @@
+---
+description: Tailwind CSS v4 utilities and design system for AI Code Studio Pro
+alwaysApply: true
+---
+
+## Tailwind CSS v4 Guidelines
+
+### Custom Utilities
+
+Use the custom utility classes defined in `src/index.css`:
+
+- `.glass-panel` - Glassmorphic panel with blur and transparency
+- `.glass-button` - Glassmorphic button with hover effects
+- `.glass-input` - Glassmorphic input field
+- `.animate-fade-in` - Fade in animation
+- `.animate-slide-up` - Slide up animation
+
+### Theme Colors
+
+Always use CSS variables for theme colors:
+
+```tsx
+// Good
+<div className="text-primary bg-background">
+
+// Avoid
+<div className="text-blue-500 bg-white">
+```
+
+### Responsive Design
+
+Use Tailwind's responsive utilities:
+
+- `sm:` - 640px+
+- `md:` - 768px+
+- `lg:` - 1024px+
+- `xl:` - 1280px+
+- `2xl:` - 1536px+
+
+### Spacing
+
+Use Tailwind's spacing scale (multiples of 0.25rem):
+
+- `p-4` - 1rem padding
+- `m-2` - 0.5rem margin
+- `gap-6` - 1.5rem gap
+
+### Component Patterns
+
+```tsx
+// Button with variants
+<button className="glass-button px-4 py-2 text-primary rounded-lg">
+  Click me
+</button>
+
+// Panel container
+<div className="glass-panel rounded-2xl p-6">
+  Content
+</div>
+
+// Input field
+<input className="glass-input px-4 py-2 rounded-lg" />
+```

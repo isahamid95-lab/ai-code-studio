@@ -1,25 +1,40 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   detectPortFromOutput,
-  parseRequestedPort,
+  isDevServerCommand,
   preflightDevServerStart,
 } from '../../../lib/dev-server'
 
 describe('dev-server helpers', () => {
-  it('parses requested ports from common command formats', () => {
-    expect(parseRequestedPort('npm run dev -- --port 5173')).toBe(5173)
-    expect(parseRequestedPort('vite --port=4173')).toBe(4173)
-    expect(parseRequestedPort('PORT=3001 npm run dev')).toBe(3001)
+  it('detects dev server commands', () => {
+    expect(isDevServerCommand('npm run dev')).toBe(true)
+    expect(isDevServerCommand('vite')).toBe(true)
+    expect(isDevServerCommand('yarn start')).toBe(true)
+    expect(isDevServerCommand('node server.js')).toBe(true)
+    expect(isDevServerCommand('echo hello')).toBe(false)
   })
 
   it('detects ports from command output', () => {
     expect(detectPortFromOutput('Local: http://localhost:5173/')).toBe(5173)
     expect(detectPortFromOutput('Server running on port 3000')).toBe(3000)
+    expect(detectPortFromOutput('listening on :8080')).toBe(8080)
   })
 
-  it('replaces a managed dev server already using the requested port', async () => {
+  it('allows new dev server start when none running', async () => {
     const result = await preflightDevServerStart(
-      'npm run dev -- --port 5173',
+      'npm run dev',
+      [],
+      vi.fn(async () => true),
+    )
+
+    expect(result.shouldStart).toBe(true)
+    expect(result.error).toBeUndefined()
+    expect(result.killPids).toBeUndefined()
+  })
+
+  it('returns error when dev server already running', async () => {
+    const result = await preflightDevServerStart(
+      'npm run dev',
       [
         {
           pid: 42,
@@ -32,30 +47,14 @@ describe('dev-server helpers', () => {
       vi.fn(async () => true),
     )
 
-    expect(result).toEqual({
-      requestedPort: 5173,
-      killPids: [42],
-    })
+    expect(result.shouldStart).toBe(false)
+    expect(result.error).toContain('Dev server already running')
+    expect(result.killPids).toEqual([42])
   })
 
-  it('returns an error when an external process owns the requested port', async () => {
-    const isPortAvailable = vi.fn(async () => false)
-
+  it('allows multiple dev servers with different commands', async () => {
     const result = await preflightDevServerStart(
-      'npm run dev -- --port=5173',
-      [],
-      isPortAvailable,
-    )
-
-    expect(result.killPids).toEqual([])
-    expect(result.requestedPort).toBe(5173)
-    expect(result.error).toContain('Port 5173 is already in use')
-    expect(isPortAvailable).toHaveBeenCalledWith(5173)
-  })
-
-  it('replaces all managed dev servers when no explicit port is requested', async () => {
-    const result = await preflightDevServerStart(
-      'npm run dev',
+      'vite',
       [
         {
           pid: 10,
@@ -64,19 +63,11 @@ describe('dev-server helpers', () => {
           port: 5173,
           spawnedAt: Date.now(),
         },
-        {
-          pid: 11,
-          command: 'vite --host',
-          kind: 'dev-server',
-          port: 4173,
-          spawnedAt: Date.now(),
-        },
       ],
       vi.fn(async () => true),
     )
 
-    expect(result.killPids).toEqual([10, 11])
-    expect(result.requestedPort).toBeUndefined()
+    expect(result.shouldStart).toBe(true)
     expect(result.error).toBeUndefined()
   })
 })

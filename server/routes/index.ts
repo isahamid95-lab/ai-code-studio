@@ -1,0 +1,9 @@
+export { fileRoutes } from './files';
+export { gitRoutes } from './git';
+export { aiRoutes } from './ai';
+export { chatRoutes } from './chat';
+export { processRoutes } from './processes';
+export { exportRoutes } from './export';
+export { execRoutes } from './exec';
+export { previewRoutes } from './preview';
+export { agentRoutes } from './agent';

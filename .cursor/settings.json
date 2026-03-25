@@ -1,6 +1,9 @@
 {
   "plugins": {
-    "render": {
+    "runlayer": {
+      "enabled": true
+    },
+    "superpowers": {
       "enabled": true
     }
   }

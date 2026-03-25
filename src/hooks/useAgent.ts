@@ -189,7 +189,7 @@ export function useAgent({
     setTerminalOutput([{ type: 'info', text: '$ Agent output ready', timestamp: Date.now() }]);
 
     try {
-      await streamAgentRequest(model || 'qwen-plus', requestMessages, mode, async (event) => {
+      await streamAgentRequest(model || 'qwen3.5-plus', requestMessages, mode, async (event) => {
         await handleAgentEvent(event, runId, responseMessageId, planMessageId);
       });
 

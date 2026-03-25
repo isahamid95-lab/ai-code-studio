@@ -9,7 +9,8 @@ import {
   Plus, FileCode2, Code2, Loader2,
   PanelRightClose, PanelRightOpen,
   X, Lightbulb, Bug, Sparkles, Globe, Trash2,
-  FolderTree, Search, GitBranch, List, Zap, Network
+  FolderTree, Search, GitBranch, List, Zap, Network, LayoutDashboard,
+  CheckCircle
 } from 'lucide-react';
 
 import type { Language } from './types';
@@ -36,6 +37,7 @@ import { SearchPanel } from './components/SearchPanel';
 import { SymbolOutline } from './components/SymbolOutline';
 import { AIIntelPanel } from './components/AIIntelPanel';
 import { MCPServersPanel } from './components/MCPServersPanel';
+import DashboardPanel from './components/DashboardPanel';
 import { loadUiState, saveUiState } from './utils/persistence';
 
 const getLanguageExtension = (lang: Language) => {
@@ -48,7 +50,7 @@ const getLanguageExtension = (lang: Language) => {
   }
 };
 
-type LeftTab = 'explorer' | 'search' | 'git' | 'outline' | 'intel' | 'mcp';
+type LeftTab = 'explorer' | 'search' | 'git' | 'outline' | 'intel' | 'mcp' | 'dashboard';
 
 const ACTIVITY_ITEMS: { id: LeftTab; icon: React.ReactNode; label: string }[] = [
   { id: 'explorer', icon: <FolderTree size={18} />, label: 'Explorer' },
@@ -57,6 +59,7 @@ const ACTIVITY_ITEMS: { id: LeftTab; icon: React.ReactNode; label: string }[] = 
   { id: 'mcp', icon: <Network size={18} />, label: 'MCP Hub' },
   { id: 'outline', icon: <List size={18} />, label: 'Outline' },
   { id: 'intel', icon: <Zap size={18} />, label: 'AI Intel' },
+  { id: 'dashboard', icon: <LayoutDashboard size={18} />, label: 'Dashboard' },
 ];
 
 export default function App() {
@@ -69,7 +72,7 @@ export default function App() {
   const [isThemeSelectorOpen, setIsThemeSelectorOpen] = useState(false);
   const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
   const [alibabaApiKey, setAlibabaApiKey] = useState(import.meta.env.VITE_ALIBABA_API_KEY || '');
-  const [alibabaModel, setAlibabaModel] = useState('qwen-plus');
+  const [alibabaModel, setAlibabaModel] = useState('qwen3.5-plus');
 
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -298,7 +301,8 @@ export default function App() {
                      leftPanelTab === 'search' ? 'Search' :
                      leftPanelTab === 'git' ? 'Source Control' :
                      leftPanelTab === 'mcp' ? 'MCP Hub' :
-                     leftPanelTab === 'outline' ? 'Outline' : 'AI Intel'}
+                     leftPanelTab === 'outline' ? 'Outline' :
+                     leftPanelTab === 'dashboard' ? 'Dashboard' : 'AI Intel'}
                   </span>
                   {leftPanelTab === 'explorer' && (
                     <button
@@ -376,12 +380,20 @@ export default function App() {
                       }}
                     />
                   )}
+                  {leftPanelTab === 'dashboard' && (
+                    <div className="text-[11px] text-text/30 px-4 py-3">Open full dashboard →</div>
+                  )}
                 </div>
               </motion.aside>
             )}
           </AnimatePresence>
 
-          {/* Center Editor Column */}
+          {/* Center Editor Column / Dashboard */}
+          {leftPanelTab === 'dashboard' ? (
+            <section className="glass-panel rounded-2xl flex-1 flex flex-col min-w-0 relative overflow-hidden">
+              <DashboardPanel />
+            </section>
+          ) : (
           <section className="glass-panel rounded-2xl flex-1 flex flex-col min-w-0 relative overflow-hidden">
 
             {/* Editor Tabs */}
@@ -537,76 +549,120 @@ export default function App() {
                   </div>
                 </>
               ) : (
-                <div className="flex-1 flex flex-col items-center justify-center">
+                <div className="flex-1 flex flex-col items-center justify-center bg-gradient-to-b from-white/[0.02] to-transparent">
                   {fileHook.files.length === 0 ? (
-                    <div className="flex flex-col items-center">
-                      <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.04] mb-6">
-                        <Code2 size={40} className="text-primary/40" />
-                      </div>
-                      <p className="text-sm font-medium text-text/50 mb-1">Start building</p>
-                      <p className="text-xs text-text/25 mb-8">Use the agent to scaffold a real project on the server</p>
-                      <div className="flex gap-3">
-                        <button
-                          onClick={() => agentHook.sendAgentMessage('Create a new React + TypeScript + Tailwind project', 'agent')}
-                          className="glass-panel px-5 py-3.5 rounded-xl hover:bg-white/[0.06] transition-all flex flex-col items-center gap-1.5 cursor-pointer group"
-                        >
-                          <span className="text-sm text-primary font-semibold group-hover:text-primary/80">React</span>
-                          <span className="text-[10px] text-text/25">Vite + Tailwind</span>
-                        </button>
-                        <button
-                          onClick={() => agentHook.sendAgentMessage('Create a new Next.js + TypeScript + Tailwind project', 'agent')}
-                          className="glass-panel px-5 py-3.5 rounded-xl hover:bg-white/[0.06] transition-all flex flex-col items-center gap-1.5 cursor-pointer group"
-                        >
-                          <span className="text-sm text-text/70 font-semibold group-hover:text-text/90">Next.js</span>
-                          <span className="text-[10px] text-text/25">App Router</span>
-                        </button>
-                        <button
-                          onClick={() => agentHook.sendAgentMessage('Create a new Node.js starter project', 'agent')}
-                          className="glass-panel px-5 py-3.5 rounded-xl hover:bg-white/[0.06] transition-all flex flex-col items-center gap-1.5 cursor-pointer group"
-                        >
-                          <span className="text-sm text-emerald-400 font-semibold group-hover:text-emerald-400/80">Node.js</span>
-                          <span className="text-[10px] text-text/25">Server app</span>
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center">
-                      <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.04] mb-5">
-                        <Code2 size={36} className="text-text/15" />
-                      </div>
-                      <p className="text-sm text-text/35 font-medium">Select a file to edit</p>
-                      <button
-                        onClick={() => fileHook.setIsCreatingFile(true)}
-                        className="mt-4 flex items-center gap-2 px-4 py-2 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/15 rounded-xl transition-all border border-primary/15 cursor-pointer"
+                    <div className="flex flex-col items-center text-center max-w-2xl px-8">
+                      <motion.div 
+                        initial={{ scale: 0.9, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ duration: 0.3 }}
+                        className="p-6 rounded-3xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30 mb-8 shadow-2xl shadow-primary/10"
                       >
-                        <Plus size={13} />
-                        New File
-                      </button>
+                        <Code2 size={56} className="text-primary" />
+                      </motion.div>
+                      <motion.h2 
+                        initial={{ y: 10, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        transition={{ delay: 0.1 }}
+                        className="text-2xl font-bold text-text mb-3"
+                      >
+                        Welcome to AI Code Studio Pro
+                      </motion.h2>
+                      <motion.p 
+                        initial={{ y: 10, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        transition={{ delay: 0.2 }}
+                        className="text-sm text-text/50 mb-10 max-w-lg"
+                      >
+                        Your browser-based IDE with AI-powered coding assistance. 
+                        Start by creating a new project or opening existing files.
+                      </motion.p>
+                      
+                      <motion.div 
+                        initial={{ y: 20, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        transition={{ delay: 0.3 }}
+                        className="w-full"
+                      >
+                        <p className="text-xs font-semibold text-text/40 uppercase tracking-wider mb-5">Quick Start Templates</p>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-3xl">
+                          <motion.button
+                            whileHover={{ scale: 1.02, y: -2 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => agentHook.sendAgentMessage('Create a new React + TypeScript + Tailwind project', 'agent')}
+                            className="glass-panel px-6 py-5 rounded-2xl hover:bg-primary/10 hover:border-primary/30 transition-all flex flex-col items-center gap-3 cursor-pointer group border border-white/[0.08] shadow-lg hover:shadow-primary/20"
+                          >
+                            <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-600/10 group-hover:from-blue-500/30 group-hover:to-blue-600/20 transition-all">
+                              <svg className="w-6 h-6 text-blue-400 group-hover:text-blue-300" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+                              </svg>
+                            </div>
+                            <div>
+                              <span className="text-base font-bold text-text group-hover:text-primary transition-colors">React</span>
+                              <p className="text-xs text-text/40 mt-1">Vite + Tailwind</p>
+                            </div>
+                          </motion.button>
+                          
+                          <motion.button
+                            whileHover={{ scale: 1.02, y: -2 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => agentHook.sendAgentMessage('Create a new Next.js + TypeScript + Tailwind project', 'agent')}
+                            className="glass-panel px-6 py-5 rounded-2xl hover:bg-white/10 hover:border-white/30 transition-all flex flex-col items-center gap-3 cursor-pointer group border border-white/[0.08] shadow-lg"
+                          >
+                            <div className="p-3 rounded-xl bg-gradient-to-br from-gray-400/20 to-gray-500/10 group-hover:from-gray-400/30 group-hover:to-gray-500/20 transition-all">
+                              <svg className="w-6 h-6 text-gray-300 group-hover:text-gray-200" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 0C5.37 0 0 5.37 0 12s5.37 12 12 12 12-5.37 12-12S18.63 0 12 0zm0 21.75c-5.385 0-9.75-4.365-9.75-9.75S6.615 2.25 12 2.25 21.75 6.615 21.75 12 17.385 21.75 12 21.75zm.563-7.534v-4.5l3.933 2.359a.75.75 0 01.375.646v3.75a.75.75 0 01-1.125.649l-3.933-2.359a.75.75 0 01-.375-.646v-3.75a.75.75 0 011.125-.649l3.933 2.359z"/>
+                              </svg>
+                            </div>
+                            <div>
+                              <span className="text-base font-bold text-text group-hover:text-text/90 transition-colors">Next.js</span>
+                              <p className="text-xs text-text/40 mt-1">App Router</p>
+                            </div>
+                          </motion.button>
+                          
+                          <motion.button
+                            whileHover={{ scale: 1.02, y: -2 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => agentHook.sendAgentMessage('Create a new Node.js starter project', 'agent')}
+                            className="glass-panel px-6 py-5 rounded-2xl hover:bg-emerald-500/10 hover:border-emerald-500/30 transition-all flex flex-col items-center gap-3 cursor-pointer group border border-white/[0.08] shadow-lg hover:shadow-emerald-500/20"
+                          >
+                            <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 group-hover:from-emerald-500/30 group-hover:to-emerald-600/20 transition-all">
+                              <svg className="w-6 h-6 text-emerald-400 group-hover:text-emerald-300" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M1.952 7.035c0-.58.385-.965.965-.965h2.893c.58 0 .965.385.965.965v6.9c0 1.93 1.352 2.895 2.895 2.895h1.93c1.543 0 2.895-.965 2.895-2.895V2.895C14.495 1.352 13.143 0 11.6 0H1.93C.385 0 0 1.352 0 2.895v11.6c0 1.543 1.352 2.895 2.895 2.895h7.733c.58 0 .965-.385.965-.965v-1.93c0-.58-.385-.965-.965-.965H2.895c-.58 0-.965-.385-.965-.965V7.035zm13.53 7.73c0 .58.385.965.965.965h2.895c.58 0 .965-.385.965-.965v-2.895c0-.58-.385-.965-.965-.965h-2.895c-.58 0-.965.385-.965.965v2.895zm-2.895-4.825c0-.58.385-.965.965-.965h4.825c.58 0 .965.385.965.965v4.825c0 .58-.385.965-.965.965h-4.825c-.58 0-.965-.385-.965-.965V9.94z"/>
+                              </svg>
+                            </div>
+                            <div>
+                              <span className="text-base font-bold text-text group-hover:text-emerald-400 transition-colors">Node.js</span>
+                              <p className="text-xs text-text/40 mt-1">Server app</p>
+                            </div>
+                          </motion.button>
+                        </div>
+                        
+                        <div className="mt-8 flex items-center justify-center gap-6 text-xs text-text/30">
+                          <span className="flex items-center gap-2">
+                            <CheckCircle size={12} className="text-emerald-400" />
+                            AI-powered coding
+                          </span>
+                          <span className="flex items-center gap-2">
+                            <CheckCircle size={12} className="text-emerald-400" />
+                            Real-time preview
+                          </span>
+                          <span className="flex items-center gap-2">
+                            <CheckCircle size={12} className="text-emerald-400" />
+                            Git integration
+                          </span>
+                        </div>
+                      </motion.div>
                     </div>
-                  )}
+                  ) : null}
                 </div>
               )}
             </div>
 
-            {/* Preview */}
-            <Suspense fallback={<div className="h-full w-full flex items-center justify-center"><Loader2 className="animate-spin text-primary" size={32} /></div>}>
-              <AnimatePresence>
-                {isPreviewOpen && (
-                  <PreviewPanel
-                    onClose={() => setIsPreviewOpen(false)}
-                    previewUrl={previewUrl}
-                    previewPort={previewPort}
-                    onPreviewUnavailable={() => {
-                      setPreviewUrl(null);
-                      setPreviewPort(null);
-                    }}
-                  />
-                )}
-              </AnimatePresence>
-              {isShortcutsOpen && (
-                <ShortcutsModal onClose={() => setIsShortcutsOpen(false)} />
-              )}
-            </Suspense>
+            {/* Preview - Hidden */}
+            {isShortcutsOpen && (
+              <ShortcutsModal onClose={() => setIsShortcutsOpen(false)} />
+            )}
 
             {/* Terminal */}
             <AnimatePresence>
@@ -619,6 +675,7 @@ export default function App() {
               )}
             </AnimatePresence>
           </section>
+          )}
 
           {/* Right Panel (AI Chat) */}
           <AnimatePresence initial={false}>

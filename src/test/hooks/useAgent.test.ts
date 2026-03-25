@@ -20,7 +20,7 @@ function useAgentHarness(onRefreshFiles: Mock, onServerStarted: Mock) {
   const [isTerminalOpen, setIsTerminalOpen] = useState(false)
 
   const agent = useAgent({
-    model: 'qwen-plus',
+    model: 'qwen3.5-plus',
     files: [{ id: 'src/App.tsx' }],
     activeFileId: 'src/App.tsx',
     setChatMessages,

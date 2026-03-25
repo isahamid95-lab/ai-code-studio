@@ -5,7 +5,13 @@ import { defineConfig } from 'vite';
 
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      react({
+        // React 19 support - use new JSX transform
+        jsxImportSource: 'react',
+      }),
+      tailwindcss()
+    ],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

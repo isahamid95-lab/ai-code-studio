@@ -1,76 +1,97 @@
+/**
+ * Development server management utilities
+ */
+import type { ChildProcessWithoutNullStreams } from 'child_process';
+
 export interface ManagedProcessLike {
   pid: number;
   command: string;
-  kind: 'dev-server';
+  kind?: 'dev-server';
   port?: number;
-  spawnedAt: number;
+  spawnedAt?: number;
+  process?: ChildProcessWithoutNullStreams;
 }
 
-export interface DevServerPreflightResult {
-  requestedPort?: number;
-  killPids: number[];
-  error?: string;
-}
-
-const DEV_SERVER_PATTERN = /(npm run dev|npx vite|next dev|node server|nodemon|vite --host|npm run start)/i;
-const PORT_PATTERN = /(?:localhost|127\.0\.0\.1|0\.0\.0\.0):(\d+)|port\s+(\d+)|http:\/\/[^:]+:(\d+)/i;
-const REQUESTED_PORT_PATTERN = /(?:--port(?:=|\s+)|-p\s+)(\d+)|PORT\s*=\s*(\d+)/i;
-
+/**
+ * Detect if a command is likely to start a dev server
+ */
 export function isDevServerCommand(command: string): boolean {
-  return DEV_SERVER_PATTERN.test(command);
+  const devServerPatterns = [
+    /\b(vite|webpack|parcel|rollup|esbuild)\b/i,
+    /\b(npm|yarn|pnpm)\s+(run\s+)?(dev|start)\b/i,
+    /\b(react-scripts|next|nuxt|astro)\b/i,
+    /\bnode\s+.*server/i,
+    /\btsx\s+.*server/i,
+    /\bts-node\s+.*server/i,
+  ];
+  
+  return devServerPatterns.some(pattern => pattern.test(command));
 }
 
+/**
+ * Detect port from dev server output
+ */
 export function detectPortFromOutput(output: string): number | undefined {
-  const match = output.match(PORT_PATTERN);
-  if (!match) {
-    return undefined;
+  const portPatterns = [
+    /localhost:(\d+)/i,
+    /127\.0\.0\.1:(\d+)/i,
+    /port\s+(\d+)/i,
+    /:(\d{4,5})/,
+    /listening.*?(\d{4,5})/i,
+  ];
+  
+  for (const pattern of portPatterns) {
+    const match = output.match(pattern);
+    if (match) {
+      const port = parseInt(match[1], 10);
+      if (port >= 1024 && port <= 65535) {
+        return port;
+      }
+    }
   }
-
-  return parseInt(match[1] || match[2] || match[3], 10);
+  
+  return undefined;
 }
 
-export function parseRequestedPort(command: string): number | undefined {
-  const match = command.match(REQUESTED_PORT_PATTERN);
-  if (!match) {
-    return undefined;
-  }
-
-  return parseInt(match[1] || match[2], 10);
-}
-
+/**
+ * Preflight check for dev server start
+ */
 export async function preflightDevServerStart(
   command: string,
-  managedProcesses: ManagedProcessLike[],
-  isPortAvailable: (port: number) => Promise<boolean>,
-): Promise<DevServerPreflightResult> {
-  const requestedPort = parseRequestedPort(command);
-  const devServerProcesses = managedProcesses.filter((processInfo) => processInfo.kind === 'dev-server');
-
-  if (requestedPort) {
-    const managedProcess = devServerProcesses.find((processInfo) => processInfo.port === requestedPort);
-    if (managedProcess) {
-      return {
-        requestedPort,
-        killPids: [managedProcess.pid],
-      };
-    }
-
-    const portAvailable = await isPortAvailable(requestedPort);
-    if (!portAvailable) {
-      return {
-        requestedPort,
-        killPids: [],
-        error: `Port ${requestedPort} is already in use by an external process.`,
-      };
-    }
-
-    return {
-      requestedPort,
-      killPids: [],
+  managedSnapshots: ManagedProcessLike[],
+  isPortAvailable: (port: number) => Promise<boolean>
+): Promise<{ shouldStart: boolean; reason?: string; port?: number; error?: string; killPids?: number[] }> {
+  if (!isDevServerCommand(command)) {
+    return { shouldStart: true };
+  }
+  
+  // Check if a similar process is already running
+  const normalizedCommand = command.trim().toLowerCase();
+  const existing = managedSnapshots.find(
+    p => p.kind === 'dev-server' && p.command.toLowerCase() === normalizedCommand
+  );
+  
+  if (existing) {
+    return { 
+      shouldStart: false,
+      error: `Dev server already running on port ${existing.port || 'unknown'}`,
+      killPids: [existing.pid]
     };
   }
+  
+  return { shouldStart: true };
+}
 
-  return {
-    killPids: devServerProcesses.map((processInfo) => processInfo.pid),
-  };
+/**
+ * Check if a port is available
+ */
+export async function isPortAvailable(port: number): Promise<boolean> {
+  const net = await import('net');
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    server.listen(port, '127.0.0.1', () => {
+      server.close(() => resolve(true));
+    });
+    server.on('error', () => resolve(false));
+  });
 }

@@ -1,0 +1,15 @@
+{
+  "name": "ai-code-studio-plugin",
+  "description": "AI Code Studio Pro için özel plugin - React component oluşturma, API route ekleme ve build optimizasyonu",
+  "version": "1.0.0",
+  "author": {
+    "name": "AI Code Studio Team"
+  },
+  "keywords": [
+    "react",
+    "typescript",
+    "vite",
+    "tailwind",
+    "ai-assistant"
+  ]
+}
