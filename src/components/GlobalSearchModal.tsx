@@ -163,7 +163,8 @@ export default function GlobalSearchModal({ isOpen, onClose, files, onOpenFile }
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setCaseSensitive(!caseSensitive)}
-                    className={`px-2 py-1 text-[10px] rounded transition-colors ${
+                    aria-label="Toggle case sensitive search"
+                    className={`px-2 py-1 text-[10px] rounded transition-colors focus-visible:ring-2 focus-visible:ring-primary ${
                       caseSensitive ? 'bg-primary/20 text-primary' : 'text-text/30 hover:text-text/50'
                     }`}
                   >
@@ -171,7 +172,8 @@ export default function GlobalSearchModal({ isOpen, onClose, files, onOpenFile }
                   </button>
                   <button
                     onClick={() => setUseRegex(!useRegex)}
-                    className={`px-2 py-1 text-[10px] rounded transition-colors ${
+                    aria-label="Toggle regex search"
+                    className={`px-2 py-1 text-[10px] rounded transition-colors focus-visible:ring-2 focus-visible:ring-primary ${
                       useRegex ? 'bg-primary/20 text-primary' : 'text-text/30 hover:text-text/50'
                     }`}
                   >
@@ -179,7 +181,7 @@ export default function GlobalSearchModal({ isOpen, onClose, files, onOpenFile }
                   </button>
                 </div>
 
-                <button onClick={onClose} className="text-text/30 hover:text-text">
+                <button onClick={onClose} aria-label="Close search" className="text-text/30 hover:text-text focus-visible:ring-2 focus-visible:ring-primary">
                   <X size={18} />
                 </button>
               </div>

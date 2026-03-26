@@ -1,98 +1,59 @@
 # AGENTS.md
 
-Guidelines for AI coding agents working in this repository.
+This file provides guidance to agents when working with code in this repository.
 
 ## Build, Lint, and Test Commands
 
 ```bash
-# Development server (Express + Vite)
-npm run dev
-
-# Build for production
-npm run build
-
-# Type checking (lint)
-npm run lint
-
-# Preview production build
-npm run preview
-
-# Clean build artifacts
-npm run clean
+npm run dev          # Development server (Express + Vite)
+npm run build        # Build for production
+npm run lint         # Type checking and linting
+npm run preview      # Preview production build
+npm run clean        # Clean build artifacts
+npm test             # Run Vitest test suite
+npm run test:watch   # Watch mode for tests
 ```
-
-**Note:** Vitest is configured. Use `npm test` for the current test suite.
 
 ## Project Overview
 
-AI Code Studio Pro is a browser-based IDE with integrated AI assistance, built with:
+AI Code Studio Pro is a browser-based IDE with integrated AI assistance:
 - **Frontend:** React 19, TypeScript 5.8, Vite 6.2, Tailwind CSS 4
-- **Backend:** Express.js server (server.ts)
+- **Backend:** Express.js server (`server.ts`)
 - **Editor:** CodeMirror 6 with syntax highlighting
 - **AI:** Alibaba Qwen3 Coder (primary), Google Gemini (optional)
-- **Runtime:** Server-first local Node.js execution with `project-workspace/` as the source of truth
+- **Runtime:** Server-first local Node.js execution with `project-workspace/` as source of truth
 
 ## Code Style Guidelines
 
 ### Imports
-
 ```typescript
 // 1. React and external libraries first
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FileCode2, Loader2 } from 'lucide-react';
 
 // 2. Internal types
 import type { FileItem, ChatMessage, AiProvider } from '../types';
 
 // 3. Internal utilities and hooks
 import { useFiles } from '../hooks/useFiles';
-import { fetchFilesFromServer } from '../services/api';
 
 // 4. Components (lazy-loaded for heavy ones)
 const Header = React.lazy(() => import('./components/Header'));
-import FileExplorer from './components/FileExplorer';
 ```
 
 ### TypeScript
-
 - **Strict typing:** Use explicit types for function parameters and return values
 - **Interfaces over types:** Prefer `interface` for object shapes, `type` for unions
 - **Avoid `any`:** Use `unknown` or specific types; cast only when necessary
 - **Nullish coalescing:** Use `??` over `||` for fallbacks
 
-```typescript
-// Good
-interface ChatPanelProps {
-  chatMessages: ChatMessage[];
-  isGenerating: boolean;
-  onSendMessage: (text: string) => void;
-}
-
-// Avoid
-function process(data: any) { ... }
-```
-
 ### React Components
-
 - **Functional components only:** No class components
 - **Named exports:** Use `export default function ComponentName()`
-- **Memoization:** Use `React.memo` for expensive components, `useCallback`/`useMemo` appropriately
+- **Memoization:** Use `React.memo` for expensive components
 - **Props destructuring:** Destructure in function signature
 
-```typescript
-// Preferred pattern
-const ChatPanel = React.memo(function ChatPanel({
-  chatMessages,
-  isGenerating,
-  onSendMessage,
-}: ChatPanelProps) {
-  // Component body
-});
-```
-
 ### Naming Conventions
-
 | Type | Convention | Example |
 |------|------------|---------|
 | Components | PascalCase | `FileExplorer`, `ChatPanel` |
@@ -103,40 +64,16 @@ const ChatPanel = React.memo(function ChatPanel({
 | CSS classes | kebab-case with Tailwind | `glass-panel`, `glass-button` |
 
 ### Styling
-
 - **Tailwind CSS 4:** Use Tailwind utility classes preferentially
 - **Custom utilities:** Defined in `src/index.css` under `@layer utilities`
 - **Glassmorphism:** Use `.glass-panel`, `.glass-button`, `.glass-input` classes
-- **Theme colors:** Use CSS variables: `--color-primary`, `--color-background`, etc.
-
-```tsx
-// Good - Tailwind + custom utilities
-<div className="glass-panel rounded-2xl p-4">
-  <button className="glass-button px-4 py-2 text-primary">
-    Click
-  </button>
-</div>
-```
 
 ### Error Handling
-
 - **Try-catch:** Wrap async operations and API calls
 - **User feedback:** Display errors in UI, not just console
 - **Graceful degradation:** Provide fallbacks when features fail
 
-```typescript
-try {
-  const response = await fetch('/api/files');
-  if (!response.ok) throw new Error('Request failed');
-  const data = await response.json();
-  // Handle success
-} catch (err: any) {
-  console.error('Operation failed', err);
-  setErrorMessage(err.message || 'An unexpected error occurred');
-}
-```
-
-### File Organization
+## File Organization
 
 ```
 src/
@@ -150,7 +87,7 @@ src/
 └── App.tsx         # Main application component
 ```
 
-### Git Commits
+## Git Commits
 
 Use conventional commit format:
 - `feat:` - New features
@@ -160,14 +97,14 @@ Use conventional commit format:
 - `style:` - Formatting changes
 - `chore:` - Maintenance tasks
 
-### API Patterns
+## API Patterns
 
 - **Server routes:** Defined in `server.ts` under `/api/*`
 - **Client calls:** Use functions in `src/services/api.ts`
 - **Agent flow:** Use `/api/agent` with SSE events for server-side agent runs
 - **Workspace:** Files live under `project-workspace/` and are accessed through the REST file API
 
-### Environment Variables
+## Environment Variables
 
 Required in `.env.local`:
 ```

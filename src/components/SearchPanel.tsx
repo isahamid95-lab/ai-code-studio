@@ -49,9 +49,10 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ files, onOpenFile }) =
           autoFocus
         />
         {query && (
-          <button 
+          <button
             onClick={() => setQuery('')}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-text/30 hover:text-text/60 cursor-pointer transition-colors"
+            aria-label="Clear search"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-text/30 hover:text-text/60 cursor-pointer transition-colors focus-visible:ring-2 focus-visible:ring-primary"
           >
             <X size={12} />
           </button>

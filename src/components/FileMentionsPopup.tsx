@@ -35,7 +35,8 @@ export const FileMentionsPopup: React.FC<FileMentionsPopupProps> = ({
         <button
           key={file.id}
           onClick={() => onSelect(file.name)}
-          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-primary/20 hover:text-text text-text/60 transition-all text-sm text-left truncate group"
+          aria-label={`Select file ${file.name}`}
+          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-primary/20 hover:text-text text-text/60 transition-all text-sm text-left truncate group focus-visible:ring-2 focus-visible:ring-primary"
         >
           <FileCode2 size={14} className="text-text/30 group-hover:text-primary" />
           <span className="truncate">{file.name}</span>

@@ -41,7 +41,8 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ onClose }) => {
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-text/30 hover:text-text hover:bg-white/[0.04] rounded-lg transition-all cursor-pointer"
+            aria-label="Close shortcuts"
+            className="p-2 text-text/30 hover:text-text hover:bg-white/[0.04] rounded-lg transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
           >
             <X size={16} />
           </button>

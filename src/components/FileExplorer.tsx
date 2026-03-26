@@ -76,7 +76,8 @@ const FileExplorer = React.memo(function FileExplorer({
                 onDeleteFile(e, contextMenuFileId);
                 closeContextMenu();
               }}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+              aria-label="Delete file"
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
             >
               <Trash2 size={12} />
               Delete File
@@ -121,7 +122,8 @@ const FileExplorer = React.memo(function FileExplorer({
                   onSetNewFileName(newFileName || `Untitled${tpl.defaultExt}`);
                   onSetSelectedTemplate(key);
                 }}
-                className={`text-[9px] px-2 py-0.5 rounded-md border transition-all cursor-pointer ${
+                aria-label={`Select ${tpl.name} template`}
+                className={`text-[9px] px-2 py-0.5 rounded-md border transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary ${
                   selectedTemplate === key
                     ? 'bg-primary/15 border-primary/30 text-primary'
                     : 'bg-white/[0.02] border-white/[0.06] text-text/35 hover:text-text/60 hover:bg-white/[0.04]'

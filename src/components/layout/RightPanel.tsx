@@ -67,7 +67,8 @@ export function RightPanel({
             </span>
             <button
               onClick={onClose}
-              className="p-1 text-text/30 hover:text-text hover:bg-white/[0.06] rounded-md transition-all cursor-pointer"
+              aria-label="Close AI Assistant"
+              className="p-1 text-text/30 hover:text-text hover:bg-white/[0.06] rounded-md transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
             >
               <X size={14} />
             </button>

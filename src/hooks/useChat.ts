@@ -8,6 +8,12 @@ const DEFAULT_CHAT_MESSAGES: ChatMessage[] = [
   { id: '0', role: 'model', text: 'Welcome to AI Code Studio Pro! I can help you write, explain, or debug your code. How can I assist you today?' },
 ];
 
+/**
+ * useChat Hook
+ *
+ * GÜVENLİK: API anahtarı artık server-side'da, frontend'den kaldırıldı
+ * Security: API key is now server-side only, removed from frontend
+ */
 export function useChat(
   activeFile: FileItem | undefined,
   files: FileItem[],
@@ -15,7 +21,6 @@ export function useChat(
   setOpenTabs: React.Dispatch<React.SetStateAction<string[]>>,
   setActiveTabId: React.Dispatch<React.SetStateAction<string>>,
   saveFileToBackend: (id: string, content: string) => Promise<void>,
-  alibabaApiKey: string,
   alibabaModel: string,
   selectedCode: string,
   setRightPanelOpen: React.Dispatch<React.SetStateAction<boolean>>,
@@ -155,63 +160,63 @@ export function useChat(
       }
       context += `\nProvide clear, concise answers. Use markdown for code blocks.`;
 
-      if (!alibabaApiKey) {
-        throw new Error("Alibaba Cloud API Key is required. Please configure it in Settings.");
-      }
+      // GÜVENLİK: API anahtarı kontrolü kaldırıldı - server-side'da yapılıyor
+      // Security: API key check removed - handled server-side
 
       const response = await sendChatMessage(alibabaModel || 'qwen3.5-plus', [
           { role: 'system', content: context },
           { role: 'user', content: text }
         ]);
 
-        if (!response.ok) {
-          const err = await response.json();
-          throw new Error(err.error?.message || "Failed to generate content from Alibaba Cloud");
-        }
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error?.message || "Failed to generate content from Alibaba Cloud");
+      }
 
-        const reader = response.body?.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-        let fullResponse = '';
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let fullResponse = '';
 
-        if (reader) {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
 
-            for (const line of lines) {
-              if (line.trim() === 'data: [DONE]') continue;
-              if (line.startsWith('data: ')) {
-                try {
-                  const data = JSON.parse(line.slice(6));
-                  const content = data.choices?.[0]?.delta?.content || '';
-                  if (content) {
-                    fullResponse += content;
-                    setChatMessages(prev => prev.map(msg =>
-                      msg.id === modelMsgId ? { ...msg, text: msg.text + content } : msg
-                    ));
-                  }
-                } catch (e) {
-                  // Ignore incomplete chunk parse errors
+          for (const line of lines) {
+            if (line.trim() === 'data: [DONE]') continue;
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                const content = data.choices?.[0]?.delta?.content || '';
+                if (content) {
+                  fullResponse += content;
+                  setChatMessages(prev => prev.map(msg =>
+                    msg.id === modelMsgId ? { ...msg, text: msg.text + content } : msg
+                  ));
                 }
+              } catch (e) {
+                // Ignore incomplete chunk parse errors
               }
             }
           }
         }
+      }
       await applyFilesFromResponse(fullResponse);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error generating content:", error);
-      setChatMessages(prev => prev.map(msg => 
-        msg.id === modelMsgId ? { ...msg, text: 'Sorry, I encountered an error: ' + error.message } : msg
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setChatMessages(prev => prev.map(msg =>
+        msg.id === modelMsgId ? { ...msg, text: 'Sorry, I encountered an error: ' + errorMessage } : msg
       ));
     } finally {
       setIsGenerating(false);
     }
-  }, [isGenerating, activeFile, alibabaApiKey, alibabaModel, applyFilesFromResponse]);
+  }, [isGenerating, activeFile, alibabaModel, applyFilesFromResponse]);
 
   const handleQuickAction = useCallback((action: 'explain' | 'bugs' | 'refactor') => {
     if (!activeFile) return;

@@ -54,9 +54,10 @@ export default function ThemeSelector({ isOpen, onClose }: ThemeSelectorProps) {
                     <p className="text-[11px] text-text/50">Choose your preferred color scheme</p>
                   </div>
                 </div>
-                <button 
+                <button
                   onClick={onClose}
-                  className="p-2 text-text/30 hover:text-text hover:bg-white/[0.04] rounded-lg transition-colors cursor-pointer"
+                  aria-label="Close theme settings"
+                  className="p-2 text-text/30 hover:text-text hover:bg-white/[0.04] rounded-lg transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   <X size={18} />
                 </button>

@@ -71,7 +71,8 @@ export default function App() {
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isThemeSelectorOpen, setIsThemeSelectorOpen] = useState(false);
   const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
-  const [alibabaApiKey, setAlibabaApiKey] = useState(import.meta.env.VITE_ALIBABA_API_KEY || '');
+  // GÜVENLİK: API anahtarı artık server-side'da, frontend'de tutulmuyor
+  // API key is now server-side only for security - frontend only selects model
   const [alibabaModel, setAlibabaModel] = useState('qwen3.5-plus');
 
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -95,7 +96,6 @@ export default function App() {
     fileHook.setOpenTabs,
     fileHook.setActiveTabId,
     fileHook.saveFileToBackend,
-    alibabaApiKey,
     alibabaModel,
     fileHook.selectedCode,
     setRightPanelOpen,

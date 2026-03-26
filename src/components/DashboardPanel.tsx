@@ -92,7 +92,11 @@ function AddTaskModal({ isOpen, onClose, onAdd }: { isOpen: boolean; onClose: ()
                   <Sparkles size={16} className="text-primary" />
                   <h3 className="text-sm font-semibold text-text/80">New Task</h3>
                 </div>
-                <button onClick={onClose} className="p-1.5 text-text/30 hover:text-text/60 hover:bg-white/[0.06] rounded-lg transition-all cursor-pointer">
+                <button
+                  onClick={onClose}
+                  aria-label="Close new task modal"
+                  className="p-1.5 text-text/30 hover:text-text/60 hover:bg-white/[0.06] rounded-lg transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
+                >
                   <X size={14} />
                 </button>
               </div>
@@ -128,7 +132,8 @@ function AddTaskModal({ isOpen, onClose, onAdd }: { isOpen: boolean; onClose: ()
                       <button
                         key={p}
                         onClick={() => setPriority(p)}
-                        className={`flex-1 py-2 text-[11px] font-medium rounded-lg border transition-all cursor-pointer capitalize ${
+                        aria-label={`Set priority to ${p}`}
+                        className={`flex-1 py-2 text-[11px] font-medium rounded-lg border transition-all cursor-pointer capitalize focus-visible:ring-2 focus-visible:ring-primary ${
                           priority === p
                             ? p === 'high'
                               ? 'bg-red-500/15 border-red-500/30 text-red-400'
@@ -151,7 +156,8 @@ function AddTaskModal({ isOpen, onClose, onAdd }: { isOpen: boolean; onClose: ()
                       <button
                         key={qt}
                         onClick={() => setTitle(qt)}
-                        className="px-2.5 py-1 text-[10px] text-text/30 bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] rounded-lg transition-all cursor-pointer"
+                        aria-label={`Quick add task: ${qt}`}
+                        className="px-2.5 py-1 text-[10px] text-text/30 bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] rounded-lg transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
                       >
                         {qt}
                       </button>

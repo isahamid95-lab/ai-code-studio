@@ -28,10 +28,43 @@ class TerminalManager extends EventEmitter {
   private sessions: Map<string, TerminalSession> = new Map();
   private maxOutputLines: number = 1000;
   private cleanupInterval: ReturnType<typeof setInterval> | null = null;
+  
+  // Resource limiting ayarları
+  private maxConcurrentSessions: number = 10;
+  private maxMemoryPerSession: number = 512 * 1024 * 1024; // 512MB
+  private maxCpuPercent: number = 80; // %80 CPU limiti
+  private maxSessionDuration: number = 2 * 60 * 60 * 1000; // 2 saat
 
   constructor() {
     super();
     this.startCleanupInterval();
+  }
+
+  // Session oluşturma limiti kontrolü
+  canCreateSession(): boolean {
+    return this.sessions.size < this.maxConcurrentSessions;
+  }
+
+  // Resource limitlerini al
+  getResourceLimits(): { maxMemory: number; maxCpu: number; maxDuration: number } {
+    return {
+      maxMemory: this.maxMemoryPerSession,
+      maxCpu: this.maxCpuPercent,
+      maxDuration: this.maxSessionDuration,
+    };
+  }
+
+  // Session süresini kontrol et
+  checkSessionDuration(id: string): { exceeded: boolean; remainingMs: number } {
+    const session = this.sessions.get(id);
+    if (!session) return { exceeded: true, remainingMs: 0 };
+
+    const elapsed = Date.now() - session.createdAt.getTime();
+    const remaining = this.maxSessionDuration - elapsed;
+    return {
+      exceeded: elapsed >= this.maxSessionDuration,
+      remainingMs: Math.max(0, remaining),
+    };
   }
 
   createSession(id: string, cwd: string = process.cwd()): TerminalSession {

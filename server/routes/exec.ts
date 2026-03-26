@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { spawn } from 'child_process';
 import fsSync from 'fs';
 import path from 'path';
@@ -9,6 +9,7 @@ const router = Router();
 
 const WORKSPACE_DIR = path.join(process.cwd(), 'project-workspace');
 
+// Güvenlik: Sadece whitelist'teki komutlara izin ver
 const ALLOWED_COMMANDS = [
   'npm', 'npx', 'yarn', 'pnpm',
   'node', 'tsx', 'ts-node',
@@ -22,32 +23,109 @@ const ALLOWED_COMMANDS = [
   'tsc', 'vite', 'vitest',
 ];
 
+// Güvenlik: Tehlikeli pattern'ler (CWE-78 - OS Command Injection)
+const DANGEROUS_PATTERNS = [
+  /\$\(/,                    // Command substitution $(...)
+  /`[^`]*`/,                 // Backtick execution
+  /\|\|/,                    // OR operator
+  /&&/,                      // AND operator (allowlist'te kontrol edilecek)
+  /;\s*\w/,                  // Command separator
+  />\s*[/\\]/,               // Redirect to root
+  /<\s*[/\\]/,               // Read from root
+  /0x[0-9a-fA-F]+/,          // Hex encoding bypass
+  /\\x[0-9a-fA-F]{2}/,       // Hex character encoding
+  /\b(eval|exec|system)\b/,  // Dangerous functions
+  /\b(sudo|su)\b/,           // Privilege escalation
+  /\b(chmod|chown)\b.*\//,   // Permission changes on system paths
+  /\b(curl|wget)\b.*\|\s*\w/, // Download and execute
+  /\b(nc|netcat)\b/,         // Reverse shell
+  /\b(python|perl|ruby)\b.*-c/, // Script execution
+];
+
+// Güvenlik: NPM için tehlikeli argümanlar
+const NPM_DANGEROUS_ARGS = [
+  'uninstall',
+  'remove',
+  'rm',
+  '-g', // Global install
+  '--force',
+  '--no-save',
+];
+
+/**
+ * Komut güvenliğini doğrula
+ *
+ * Güvenlik kontrolleri:
+ * 1. Shell injection pattern'leri
+ * 2. Allowlist kontrolü
+ * 3. Argüman bazlı doğrulama
+ * 4. Path traversal koruması
+ */
 function isCommandAllowed(command: string): { allowed: boolean; reason?: string } {
   const trimmed = command.trim();
+  
+  // Boş komut kontrolü
+  if (!trimmed) {
+    return { allowed: false, reason: 'Command is empty' };
+  }
+  
+  // Uzunluk kontrolü - çok uzun komutları reddet
+  if (trimmed.length > 1000) {
+    return { allowed: false, reason: 'Command too long' };
+  }
+  
+  // 1. Shell injection pattern'lerini kontrol et
+  for (const pattern of DANGEROUS_PATTERNS) {
+    if (pattern.test(trimmed)) {
+      console.warn('[exec] Dangerous pattern detected:', { pattern: pattern.source, command: trimmed });
+      return { allowed: false, reason: 'Potentially dangerous pattern detected' };
+    }
+  }
+  
+  // 2. Base komut çıkar ve allowlist kontrolü yap
   const firstPart = trimmed.split(/\s+/)[0];
   const baseCommand = firstPart.replace(/\.exe$/i, '');
   
   if (!ALLOWED_COMMANDS.includes(baseCommand)) {
-    return { 
-      allowed: false, 
-      reason: `Command '${baseCommand}' is not in the allowed list. Allowed commands: ${ALLOWED_COMMANDS.join(', ')}` 
+    console.warn('[exec] Disallowed command:', baseCommand);
+    return {
+      allowed: false,
+      reason: `Command '${baseCommand}' is not allowed`
     };
   }
   
-  const dangerousPatterns = [
-    /\|\s*(rm|del|format|shutdown|reboot)/i,
-    /&&\s*(rm|del|format|shutdown|reboot)/i,
-    /;\s*(rm|del|format|shutdown|reboot)/i,
-    />\s*\/dev\/sd/i,
-    /sudo\s/i,
-    /chmod\s+[0-7]{3,4}\s+\//i,
-    /\$\(/i,
-    /`/i,
-  ];
+  // 3. NPM özel kontrolleri
+  if (baseCommand === 'npm' || baseCommand === 'npx' || baseCommand === 'yarn' || baseCommand === 'pnpm') {
+    for (const dangerousArg of NPM_DANGEROUS_ARGS) {
+      if (trimmed.includes(dangerousArg)) {
+        console.warn('[exec] Dangerous npm argument:', dangerousArg);
+        return { allowed: false, reason: `Dangerous argument '${dangerousArg}' not allowed` };
+      }
+    }
+  }
   
-  for (const pattern of dangerousPatterns) {
-    if (pattern.test(command)) {
-      return { allowed: false, reason: 'Command contains potentially dangerous patterns' };
+  // 4. Git özel kontrolleri
+  if (baseCommand === 'git') {
+    const dangerousGit = ['push', '--force', 'reset --hard', 'filter-branch'];
+    for (const dangerous of dangerousGit) {
+      if (trimmed.includes(dangerous)) {
+        console.warn('[exec] Dangerous git command:', dangerous);
+        return { allowed: false, reason: `Dangerous git operation '${dangerous}' not allowed` };
+      }
+    }
+  }
+  
+  // 5. rm/del komutları için ek kontroller
+  if (baseCommand === 'rm' || baseCommand === 'del' || baseCommand === 'rmdir') {
+    // Recursive ve force flag'leri kontrol et
+    if (trimmed.includes('-rf') || trimmed.includes('-fr') || trimmed.includes('/F') || trimmed.includes('/S')) {
+      console.warn('[exec] Dangerous recursive delete:', trimmed);
+      return { allowed: false, reason: 'Recursive delete not allowed' };
+    }
+    // Root veya home directory silme girişimleri
+    if (trimmed.includes('/*') || trimmed.includes('/home') || trimmed.includes('/Users')) {
+      console.warn('[exec] System directory delete attempt:', trimmed);
+      return { allowed: false, reason: 'System directory operations not allowed' };
     }
   }
   

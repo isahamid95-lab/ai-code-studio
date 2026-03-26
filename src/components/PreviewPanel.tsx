@@ -92,21 +92,24 @@ const PreviewPanel = React.memo(function PreviewPanel({
           <div className="flex items-center gap-1.5 px-3 border-x border-white/10 mx-2">
             <button
               onClick={() => setViewportMode('mobile')}
-              className={`p-1.5 rounded-lg transition-all cursor-pointer ${viewportMode === 'mobile' ? 'bg-primary/20 text-primary' : 'text-text/40 hover:text-text hover:bg-white/5'}`}
+              aria-label="Mobile View"
+              className={`p-1.5 rounded-lg transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary ${viewportMode === 'mobile' ? 'bg-primary/20 text-primary' : 'text-text/40 hover:text-text hover:bg-white/5'}`}
               title="Mobile View"
             >
               <Smartphone size={14} />
             </button>
             <button
               onClick={() => setViewportMode('tablet')}
-              className={`p-1.5 rounded-lg transition-all cursor-pointer ${viewportMode === 'tablet' ? 'bg-primary/20 text-primary' : 'text-text/40 hover:text-text hover:bg-white/5'}`}
+              aria-label="Tablet View"
+              className={`p-1.5 rounded-lg transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary ${viewportMode === 'tablet' ? 'bg-primary/20 text-primary' : 'text-text/40 hover:text-text hover:bg-white/5'}`}
               title="Tablet View"
             >
               <TabletIcon size={14} />
             </button>
             <button
               onClick={() => setViewportMode('desktop')}
-              className={`p-1.5 rounded-lg transition-all cursor-pointer ${viewportMode === 'desktop' ? 'bg-primary/20 text-primary' : 'text-text/40 hover:text-text hover:bg-white/5'}`}
+              aria-label="Desktop View"
+              className={`p-1.5 rounded-lg transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary ${viewportMode === 'desktop' ? 'bg-primary/20 text-primary' : 'text-text/40 hover:text-text hover:bg-white/5'}`}
               title="Desktop View"
             >
               <Monitor size={14} />
@@ -114,16 +117,16 @@ const PreviewPanel = React.memo(function PreviewPanel({
           </div>
 
           <div className="flex items-center gap-1.5">
-            <button onClick={handleRefresh} className="p-1.5 text-text/50 hover:text-text hover:bg-white/10 rounded-lg transition-colors cursor-pointer" title="Refresh">
+            <button onClick={handleRefresh} aria-label="Refresh" className="p-1.5 text-text/50 hover:text-text hover:bg-white/10 rounded-lg transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary" title="Refresh">
               <RefreshCcw size={14} />
             </button>
-            <button onClick={handleOpenExternal} className="p-1.5 text-text/50 hover:text-text hover:bg-white/10 rounded-lg transition-colors cursor-pointer" title="Open in new tab">
+            <button onClick={handleOpenExternal} aria-label="Open in new tab" className="p-1.5 text-text/50 hover:text-text hover:bg-white/10 rounded-lg transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary" title="Open in new tab">
               <ExternalLink size={14} />
             </button>
-            <button onClick={() => setIsFullscreen(false)} className="p-1.5 text-text/50 hover:text-text hover:bg-white/10 rounded-lg transition-colors cursor-pointer" title="Exit fullscreen">
+            <button onClick={() => setIsFullscreen(false)} aria-label="Exit fullscreen" className="p-1.5 text-text/50 hover:text-text hover:bg-white/10 rounded-lg transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary" title="Exit fullscreen">
               <Minimize2 size={14} />
             </button>
-            <button onClick={onClose} className="p-1.5 text-text/50 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer" title="Close">
+            <button onClick={onClose} aria-label="Close preview" className="p-1.5 text-text/50 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary" title="Close">
               <X size={14} />
             </button>
           </div>
@@ -161,16 +164,16 @@ const PreviewPanel = React.memo(function PreviewPanel({
         <div className="flex-1 text-[11px] text-text/35 truncate">{normalizedUrl || 'No preview available'}</div>
 
         <div className="flex items-center gap-1">
-          <button onClick={handleRefresh} className="p-1.5 text-text/40 hover:text-text transition-colors cursor-pointer" title="Refresh">
+          <button onClick={handleRefresh} aria-label="Refresh" className="p-1.5 text-text/40 hover:text-text transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary" title="Refresh">
             <RefreshCcw size={13} />
           </button>
-          <button onClick={handleOpenExternal} className="p-1.5 text-text/40 hover:text-text transition-colors cursor-pointer" title="Open in new tab">
+          <button onClick={handleOpenExternal} aria-label="Open in new tab" className="p-1.5 text-text/40 hover:text-text transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary" title="Open in new tab">
             <ExternalLink size={13} />
           </button>
-          <button onClick={() => setIsFullscreen(true)} className="p-1.5 text-text/40 hover:text-text transition-colors cursor-pointer" title="Fullscreen">
+          <button onClick={() => setIsFullscreen(true)} aria-label="Fullscreen" className="p-1.5 text-text/40 hover:text-text transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary" title="Fullscreen">
             <Maximize2 size={13} />
           </button>
-          <button onClick={onClose} className="p-1.5 text-text/40 hover:text-text transition-colors cursor-pointer" title="Close">
+          <button onClick={onClose} aria-label="Close preview" className="p-1.5 text-text/40 hover:text-text transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary" title="Close">
             <X size={13} />
           </button>
         </div>

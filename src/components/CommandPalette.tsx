@@ -127,22 +127,23 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                         {categoryItems.map((item) => {
                           const globalIndex = filteredItems.indexOf(item);
                           return (
-                            <div
+                            <button
                               key={item.id}
                               onMouseEnter={() => setSelectedIndex(globalIndex)}
                               onClick={() => handleSelect(item)}
-                              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all ${
-                                selectedIndex === globalIndex 
-                                  ? 'bg-primary/15 text-text border border-primary/25' 
+                              aria-label={item.name}
+                              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all focus-visible:ring-2 focus-visible:ring-primary ${
+                                selectedIndex === globalIndex
+                                  ? 'bg-primary/15 text-text border border-primary/25'
                                   : 'text-text/45 border border-transparent hover:bg-white/[0.04]'
                               }`}
                             >
                               <item.icon size={15} className={selectedIndex === globalIndex ? 'text-primary' : 'text-text/25'} />
-                              <span className="text-[13px] font-medium flex-1">{item.name}</span>
+                              <span className="text-[13px] font-medium flex-1 text-left">{item.name}</span>
                               {selectedIndex === globalIndex && (
                                 <Zap size={13} className="text-primary animate-pulse" />
                               )}
-                            </div>
+                            </button>
                           );
                         })}
                       </div>

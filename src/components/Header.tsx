@@ -34,7 +34,8 @@ const Header = React.memo(function Header({
       <div className="flex items-center gap-1.5">
         <button
           onClick={onOpenTheme}
-          className="p-2.5 text-text/40 hover:text-text hover:bg-white/[0.06] rounded-xl transition-all cursor-pointer"
+          aria-label="Theme Settings"
+          className="p-2.5 text-text/40 hover:text-text hover:bg-white/[0.06] rounded-xl transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
           title="Theme Settings"
         >
           <Palette size={16} />
@@ -42,7 +43,8 @@ const Header = React.memo(function Header({
 
         <button
           onClick={onOpenSettings}
-          className="p-2.5 text-text/40 hover:text-text hover:bg-white/[0.06] rounded-xl transition-all cursor-pointer"
+          aria-label="Settings"
+          className="p-2.5 text-text/40 hover:text-text hover:bg-white/[0.06] rounded-xl transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
           title="Settings"
         >
           <Settings size={16} />
@@ -50,7 +52,8 @@ const Header = React.memo(function Header({
 
         <button
           onClick={onOpenShortcuts}
-          className="p-2.5 text-text/40 hover:text-text hover:bg-white/[0.06] rounded-xl transition-all cursor-pointer"
+          aria-label="Keyboard Shortcuts"
+          className="p-2.5 text-text/40 hover:text-text hover:bg-white/[0.06] rounded-xl transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
           title="Keyboard Shortcuts"
         >
           <Keyboard size={16} />
@@ -58,7 +61,8 @@ const Header = React.memo(function Header({
 
         <button
           onClick={handleExport}
-          className="p-2.5 text-text/40 hover:text-text hover:bg-white/[0.06] rounded-xl transition-all cursor-pointer"
+          aria-label="Export Project"
+          className="p-2.5 text-text/40 hover:text-text hover:bg-white/[0.06] rounded-xl transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
           title="Export Project"
         >
           <Download size={16} />

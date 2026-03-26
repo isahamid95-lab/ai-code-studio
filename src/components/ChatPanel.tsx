@@ -194,14 +194,19 @@ const ChatPanel = React.memo(function ChatPanel({
               <span className="text-[10px] text-primary font-medium">Working</span>
             </motion.div>
           )}
-          <button 
+          <button
             onClick={onClearChat}
-            className="p-1.5 text-text/30 hover:text-red-400 hover:bg-white/[0.04] rounded-lg cursor-pointer transition-all"
+            aria-label="Clear Chat"
+            className="p-1.5 text-text/30 hover:text-red-400 hover:bg-white/[0.04] rounded-lg cursor-pointer transition-all focus-visible:ring-2 focus-visible:ring-primary"
             title="Clear Chat"
           >
             <Trash2 size={13} className="lucide lucide-trash-2" />
           </button>
-          <button className="p-1.5 text-text/30 hover:text-text/60 hover:bg-white/[0.04] rounded-lg cursor-pointer transition-all" title="More Options">
+          <button
+            aria-label="More Options"
+            className="p-1.5 text-text/30 hover:text-text/60 hover:bg-white/[0.04] rounded-lg cursor-pointer transition-all focus-visible:ring-2 focus-visible:ring-primary"
+            title="More Options"
+          >
             <MoreVertical size={13} />
           </button>
         </div>
@@ -364,7 +369,8 @@ const ChatPanel = React.memo(function ChatPanel({
         <div className="flex gap-1.5 mb-2.5">
           <button
             onClick={() => { onSetAgentMode(!agentMode); onSetPlanMode(false); }}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+            aria-label="Toggle Agent Mode"
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary ${
               agentMode
                 ? 'bg-primary/15 text-primary border border-primary/25'
                 : 'text-text/30 hover:text-text/50 hover:bg-white/[0.04] border border-transparent'
@@ -375,7 +381,8 @@ const ChatPanel = React.memo(function ChatPanel({
           </button>
           <button
             onClick={() => { onSetPlanMode(!planMode); onSetAgentMode(false); }}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+            aria-label="Toggle Plan Mode"
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary ${
               planMode
                 ? 'bg-amber-500/15 text-amber-400 border border-amber-500/25'
                 : 'text-text/30 hover:text-text/50 hover:bg-white/[0.04] border border-transparent'
@@ -393,6 +400,7 @@ const ChatPanel = React.memo(function ChatPanel({
             value={chatInput}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
+            aria-label="Chat message input"
             placeholder={
               agentMode ? 'What should I build?' :
               planMode ? 'Describe the project...' :
@@ -410,8 +418,9 @@ const ChatPanel = React.memo(function ChatPanel({
           />
           <button
             onClick={handleSend}
+            aria-label="Send Message"
             disabled={!chatInput.trim() || isGenerating}
-            className={`absolute right-2 bottom-2 p-2 rounded-lg transition-all cursor-pointer ${
+            className={`absolute right-2 bottom-2 p-2 rounded-lg transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary ${
               chatInput.trim() && !isGenerating
                 ? 'bg-primary text-white hover:bg-primary/80'
                 : 'bg-white/[0.04] text-text/20'
@@ -430,9 +439,10 @@ const ChatPanel = React.memo(function ChatPanel({
           </span>
           <button
             onClick={() => onSetIsTerminalOpen(!isTerminalOpen)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
-              isTerminalOpen 
-                ? 'bg-primary/20 text-primary border border-primary/20' 
+            aria-label="Toggle Terminal"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary ${
+              isTerminalOpen
+                ? 'bg-primary/20 text-primary border border-primary/20'
                 : 'text-text/40 hover:text-text hover:bg-white/[0.04] border border-transparent'
             }`}
           >

@@ -70,7 +70,8 @@ export const SymbolOutline: React.FC<SymbolOutlineProps> = ({ content, onJumpToL
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: i * 0.02 }}
             onClick={() => onJumpToLine(s.line)}
-            className="group w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/[0.04] rounded-md transition-colors text-left cursor-pointer"
+            aria-label={`Jump to ${s.name} at line ${s.line}`}
+            className="group w-full flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/[0.04] rounded-md transition-colors text-left cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
           >
             <div className={`p-1 rounded-md shrink-0 border border-transparent ${
               s.type === 'function' ? 'text-emerald-400 bg-emerald-500/[0.06] border-emerald-500/10' :

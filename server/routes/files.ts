@@ -1,177 +1,171 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { FileSaveSchema, FileDeleteSchema, RenameFileSchema, SearchFilesSchema } from '../../src/validators';
 import { safePath, getWorkspaceFiles, readFileContent, writeFileContent, deleteFile, renameFile, createDirectory } from '../utils/workspace';
 import { minimatch } from 'minimatch';
-import type { Request } from 'express';
+import { BadRequestError, NotFoundError, InternalError } from '../../server/middleware/errorHandler';
 
 const router = Router();
+
+// Dosya boyut limiti: 1MB
+const MAX_FILE_SIZE = 1024 * 1024; // 1MB
+
+// Error handler wrapper
+const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
+};
+
+// Dosya boyutu kontrolü
+const checkFileSize = (content: string): void => {
+  const size = Buffer.byteLength(content, 'utf8');
+  if (size > MAX_FILE_SIZE) {
+    throw new BadRequestError(`File size exceeds limit (${MAX_FILE_SIZE} bytes). Current size: ${size} bytes`);
+  }
+};
 
 /**
  * GET /api/files
  * List all files in workspace
  */
-router.get('/', async (req, res) => {
-  try {
-    const files = await getWorkspaceFiles();
-    res.json({ files });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+router.get('/', asyncHandler(async (req, res, next) => {
+  const files = await getWorkspaceFiles();
+  res.json({ files });
+}));
 
 /**
  * GET /api/files/*
  * Get file content by path
  */
-router.get('/*', async (req, res) => {
-  try {
-    const filePath = (req.params as any)[0];
-    const validation = FileSaveSchema.safeParse({ id: filePath, content: '' });
-    
-    if (!validation.success) {
-      return res.status(400).json({ error: validation.error.issues[0].message });
-    }
-
-    const content = await readFileContent(filePath);
-    if (content === null) {
-      return res.status(404).json({ error: 'File not found' });
-    }
-
-    const ext = filePath.split('.').pop() || '';
-    const languageMap: Record<string, string> = {
-      ts: 'typescript', tsx: 'typescript',
-      js: 'javascript', jsx: 'javascript',
-      py: 'python', rs: 'rust', go: 'go',
-      java: 'java', cpp: 'cpp', c: 'c',
-      html: 'html', css: 'css', scss: 'scss',
-      json: 'json', md: 'markdown', yaml: 'yaml',
-    };
-
-    res.json({
-      id: filePath,
-      name: filePath.split('/').pop() || filePath,
-      content,
-      language: languageMap[ext] || 'plaintext',
-    });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+router.get('/*', asyncHandler(async (req, res, next) => {
+  const filePath = (req.params as any)[0];
+  const validation = FileSaveSchema.safeParse({ id: filePath, content: '' });
+  
+  if (!validation.success) {
+    throw new BadRequestError(validation.error.issues[0].message);
   }
-});
+
+  const content = await readFileContent(filePath);
+  if (content === null) {
+    throw new NotFoundError('File not found');
+  }
+
+  const ext = filePath.split('.').pop() || '';
+  const languageMap: Record<string, string> = {
+    ts: 'typescript', tsx: 'typescript',
+    js: 'javascript', jsx: 'javascript',
+    py: 'python', rs: 'rust', go: 'go',
+    java: 'java', cpp: 'cpp', c: 'c',
+    html: 'html', css: 'css', scss: 'scss',
+    json: 'json', md: 'markdown', yaml: 'yaml',
+  };
+
+  res.json({
+    id: filePath,
+    name: filePath.split('/').pop() || filePath,
+    content,
+    language: languageMap[ext] || 'plaintext',
+  });
+}));
 
 /**
  * POST /api/files
  * Create or update file
  */
-router.post('/', async (req, res) => {
-  try {
-    const validation = FileSaveSchema.safeParse(req.body);
-    if (!validation.success) {
-      return res.status(400).json({ error: validation.error.issues[0].message });
-    }
-
-    const { id, content } = validation.data;
-    const success = await writeFileContent(id, content);
-    
-    if (success) {
-      res.json({ success: true, path: id });
-    } else {
-      res.status(500).json({ error: 'Failed to write file' });
-    }
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+router.post('/', asyncHandler(async (req, res, next) => {
+  const validation = FileSaveSchema.safeParse(req.body);
+  if (!validation.success) {
+    throw new BadRequestError(validation.error.issues[0].message);
   }
-});
+
+  const { id, content } = validation.data;
+  
+  // GÜVENLİK: Dosya boyutu kontrolü
+  checkFileSize(content);
+  
+  const success = await writeFileContent(id, content);
+  
+  if (success) {
+    res.json({ success: true, path: id });
+  } else {
+    throw new InternalError('Failed to write file');
+  }
+}));
 
 /**
  * DELETE /api/files
  * Delete file
  */
-router.delete('/', async (req, res) => {
-  try {
-    const validation = FileDeleteSchema.safeParse(req.body);
-    if (!validation.success) {
-      return res.status(400).json({ error: validation.error.issues[0].message });
-    }
-
-    const { id } = validation.data;
-    const success = await deleteFile(id);
-    
-    if (success) {
-      res.json({ success: true });
-    } else {
-      res.status(404).json({ error: 'File not found' });
-    }
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+router.delete('/', asyncHandler(async (req, res, next) => {
+  const validation = FileDeleteSchema.safeParse(req.body);
+  if (!validation.success) {
+    throw new BadRequestError(validation.error.issues[0].message);
   }
-});
+
+  const { id } = validation.data;
+  const success = await deleteFile(id);
+  
+  if (success) {
+    res.json({ success: true });
+  } else {
+    throw new NotFoundError('File not found');
+  }
+}));
 
 /**
  * POST /api/files/rename
  * Rename/move file
  */
-router.post('/rename', async (req, res) => {
-  try {
-    const validation = RenameFileSchema.safeParse(req.body);
-    if (!validation.success) {
-      return res.status(400).json({ error: validation.error.issues[0].message });
-    }
-
-    const { oldPath, newPath } = validation.data;
-    const success = await renameFile(oldPath, newPath);
-    
-    if (success) {
-      res.json({ success: true });
-    } else {
-      res.status(500).json({ error: 'Failed to rename file' });
-    }
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+router.post('/rename', asyncHandler(async (req, res, next) => {
+  const validation = RenameFileSchema.safeParse(req.body);
+  if (!validation.success) {
+    throw new BadRequestError(validation.error.issues[0].message);
   }
-});
+
+  const { oldPath, newPath } = validation.data;
+  const success = await renameFile(oldPath, newPath);
+  
+  if (success) {
+    res.json({ success: true });
+  } else {
+    throw new InternalError('Failed to rename file');
+  }
+}));
 
 /**
  * POST /api/files/search
  * Search files by pattern
  */
-router.post('/search', async (req, res) => {
-  try {
-    const validation = SearchFilesSchema.safeParse(req.body);
-    if (!validation.success) {
-      return res.status(400).json({ error: validation.error.issues[0].message });
-    }
-
-    const { pattern } = validation.data;
-    const files = await getWorkspaceFiles();
-    const matches = files.filter(f => minimatch(f.path, pattern));
-    
-    res.json(matches);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+router.post('/search', asyncHandler(async (req, res, next) => {
+  const validation = SearchFilesSchema.safeParse(req.body);
+  if (!validation.success) {
+    throw new BadRequestError(validation.error.issues[0].message);
   }
-});
+
+  const { pattern } = validation.data;
+  const files = await getWorkspaceFiles();
+  const matches = files.filter(f => minimatch(f.path, pattern));
+  
+  res.json(matches);
+}));
 
 /**
  * POST /api/files/mkdir
  * Create directory
  */
-router.post('/mkdir', async (req, res) => {
-  try {
-    const { path: dirPath } = req.body;
-    if (!dirPath) {
-      return res.status(400).json({ error: 'Path is required' });
-    }
-
-    const success = await createDirectory(dirPath);
-    
-    if (success) {
-      res.json({ success: true });
-    } else {
-      res.status(500).json({ error: 'Failed to create directory' });
-    }
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+router.post('/mkdir', asyncHandler(async (req, res, next) => {
+  const { path: dirPath } = req.body;
+  if (!dirPath) {
+    throw new BadRequestError('Path is required');
   }
-});
+
+  const success = await createDirectory(dirPath);
+  
+  if (success) {
+    res.json({ success: true });
+  } else {
+    throw new InternalError('Failed to create directory');
+  }
+}));
 
 export { router as fileRoutes };

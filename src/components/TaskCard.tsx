@@ -108,7 +108,8 @@ const TaskCard = React.memo(function TaskCard({ task, onUpdateStatus, onDelete }
             {prevStatus && (
               <button
                 onClick={() => onUpdateStatus(task.id, prevStatus)}
-                className="p-1 text-text/25 hover:text-text/60 hover:bg-white/[0.06] rounded-md transition-all cursor-pointer"
+                aria-label={`Move to ${prevStatus}`}
+                className="p-1 text-text/25 hover:text-text/60 hover:bg-white/[0.06] rounded-md transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
                 title={`Move to ${prevStatus}`}
               >
                 <ArrowLeft size={12} />
@@ -117,7 +118,8 @@ const TaskCard = React.memo(function TaskCard({ task, onUpdateStatus, onDelete }
             {nextStatus && (
               <button
                 onClick={() => onUpdateStatus(task.id, nextStatus)}
-                className="p-1 text-primary/60 hover:text-primary hover:bg-primary/10 rounded-md transition-all cursor-pointer"
+                aria-label={`Move to ${nextStatus}`}
+                className="p-1 text-primary/60 hover:text-primary hover:bg-primary/10 rounded-md transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
                 title={`Move to ${nextStatus}`}
               >
                 <ArrowRight size={12} />
@@ -125,7 +127,8 @@ const TaskCard = React.memo(function TaskCard({ task, onUpdateStatus, onDelete }
             )}
             <button
               onClick={() => onDelete(task.id)}
-              className="p-1 text-text/20 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-all cursor-pointer"
+              aria-label="Delete task"
+              className="p-1 text-text/20 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
               title="Delete"
             >
               <Trash2 size={12} />

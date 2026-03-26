@@ -61,7 +61,8 @@ export function EditorTabs({
                   e.stopPropagation();
                   onTabClose(tabId);
                 }}
-                className="opacity-0 group-hover:opacity-100 hover:bg-white/[0.1] rounded p-0.5 transition-opacity"
+                aria-label={`Close ${getFileName(tabId)}`}
+                className="opacity-0 group-hover:opacity-100 hover:bg-white/[0.1] rounded p-0.5 transition-opacity focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <X size={12} />
               </button>

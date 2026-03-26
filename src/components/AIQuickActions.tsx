@@ -40,8 +40,9 @@ export default function AIQuickActions({
       <button
         onClick={() => handleAction(onAnalyze)}
         disabled={!hasFile}
+        aria-label="Analyze code"
         className="group flex items-center gap-1.5 px-3 py-1.5 text-xs text-cyan-300 rounded-full whitespace-nowrap
-                   bg-cyan-500/10 hover:bg-cyan-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                   bg-cyan-500/10 hover:bg-cyan-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-primary"
         title="Analyze code quality, bugs, and security issues"
       >
         <Sparkles size={12} className="group-hover:scale-110 transition-transform" />
@@ -51,8 +52,9 @@ export default function AIQuickActions({
       <button
         onClick={() => handleAction(onFindBugs)}
         disabled={!hasFile}
+        aria-label="Find bugs"
         className="group flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-300 rounded-full whitespace-nowrap
-                   bg-red-500/10 hover:bg-red-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                   bg-red-500/10 hover:bg-red-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-primary"
         title="Find bugs and security vulnerabilities"
       >
         <Bug size={12} className="group-hover:scale-110 transition-transform" />
@@ -62,8 +64,9 @@ export default function AIQuickActions({
       <button
         onClick={() => handleAction(onRefactor)}
         disabled={!hasFile}
+        aria-label="Refactor code"
         className="group flex items-center gap-1.5 px-3 py-1.5 text-xs text-emerald-300 rounded-full whitespace-nowrap
-                   bg-emerald-500/10 hover:bg-emerald-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                   bg-emerald-500/10 hover:bg-emerald-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-primary"
         title="Refactor code for better quality"
       >
         <Wrench size={12} className="group-hover:scale-110 transition-transform" />
@@ -73,8 +76,9 @@ export default function AIQuickActions({
       <button
         onClick={() => handleAction(onExplain)}
         disabled={!hasFile}
+        aria-label="Explain code"
         className="group flex items-center gap-1.5 px-3 py-1.5 text-xs text-blue-300 rounded-full whitespace-nowrap
-                   bg-blue-500/10 hover:bg-blue-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                   bg-blue-500/10 hover:bg-blue-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-primary"
         title="Explain code in detail"
       >
         <BookOpen size={12} className="group-hover:scale-110 transition-transform" />
@@ -84,8 +88,9 @@ export default function AIQuickActions({
       <button
         onClick={() => handleAction(onGenerateTests)}
         disabled={!hasFile}
+        aria-label="Generate tests"
         className="group flex items-center gap-1.5 px-3 py-1.5 text-xs text-orange-300 rounded-full whitespace-nowrap
-                   bg-orange-500/10 hover:bg-orange-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                   bg-orange-500/10 hover:bg-orange-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-primary"
         title="Generate unit tests automatically"
       >
         <TestTube size={12} className="group-hover:scale-110 transition-transform" />
@@ -95,8 +100,9 @@ export default function AIQuickActions({
       <button
         onClick={() => handleAction(onOptimize)}
         disabled={!hasFile}
+        aria-label="Optimize performance"
         className="group flex items-center gap-1.5 px-3 py-1.5 text-xs text-yellow-300 rounded-full whitespace-nowrap
-                   bg-yellow-500/10 hover:bg-yellow-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                   bg-yellow-500/10 hover:bg-yellow-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-primary"
         title="Optimize for performance"
       >
         <Zap size={12} className="group-hover:scale-110 transition-transform" />

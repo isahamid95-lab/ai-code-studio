@@ -117,7 +117,8 @@ export function LeftPanel({
             {leftPanelTab === 'explorer' && (
               <button
                 onClick={() => onSetCreatingFile(true)}
-                className="p-1 text-text/30 hover:text-text hover:bg-white/[0.06] rounded-md transition-all cursor-pointer"
+                aria-label="Create new file"
+                className="p-1 text-text/30 hover:text-text hover:bg-white/[0.06] rounded-md transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <Plus size={14} />
               </button>

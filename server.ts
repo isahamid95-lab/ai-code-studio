@@ -5,6 +5,7 @@ import path from 'path';
 import simpleGit from 'simple-git';
 import fsSync from 'fs';
 import dotenv from 'dotenv';
+import cors from 'cors';
 
 import { apiLimiter, chatLimiter, agentLimiter, fileLimiter } from './src/middleware/rateLimiter';
 import {
@@ -20,6 +21,7 @@ import {
 } from './server/routes';
 import { setupTerminalWebSocket } from './server/websocket/terminal';
 import { WORKSPACE_DIR } from './server/services/aiContext';
+import { errorHandler, notFoundHandler } from './server/middleware/errorHandler';
 
 dotenv.config();
 if (fsSync.existsSync('.env.local')) {
@@ -34,7 +36,41 @@ async function startServer() {
   const app = express();
   const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
+  // CORS yapılandırması - Sadece localhost için
+  const corsOptions = {
+    origin: process.env.NODE_ENV === 'production'
+      ? false // Production'da aynı origin'den gelmeli
+      : ['http://localhost:3000', 'http://localhost:5173'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+    maxAge: 86400, // 24 saat
+  };
+  app.use(cors(corsOptions));
+
+  // Content Security Policy (CSP) header'ları
+  app.use((req, res, next) => {
+    res.setHeader(
+      'Content-Security-Policy',
+      "default-src 'self'; " +
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; " +
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+      "font-src 'self' https://fonts.gstatic.com; " +
+      "img-src 'self' data: blob:; " +
+      "connect-src 'self' ws: wss:; " +
+      "worker-src 'self' blob:; " +
+      "frame-ancestors 'none';"
+    );
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+    next();
+  });
+
   app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
   app.use('/api/', apiLimiter);
   app.use('/api/chat', chatLimiter);
@@ -50,6 +86,15 @@ async function startServer() {
   app.use('/api/export', exportRoutes);
   app.use('/api', execRoutes);
   app.use('/preview', previewRoutes);
+
+  // Health check endpoint
+  app.get('/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
+  // Error handling middleware
+  app.use(notFoundHandler);
+  app.use(errorHandler);
 
   const httpServer = createHttpServer(app);
   setupTerminalWebSocket(httpServer);

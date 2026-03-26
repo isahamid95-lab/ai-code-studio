@@ -16,12 +16,63 @@ export function getWorkspaceDir(): string {
 
 /**
  * Path traversal saldırılarına karşı güvenli path oluştur
+ *
+ * Güvenlik kontrolleri:
+ * 1. Null byte injection (%00, \0) engelleme
+ * 2. Absolute path engelleme
+ * 3. Parent directory (..) engelleme
+ * 4. Windows UNC path ve drive letter bypass koruması
+ * 5. Normalized path karşılaştırması
  */
 export function safePath(userPath: string): string | null {
-  const resolved = path.resolve(getWorkspaceDir(), userPath);
-  if (!resolved.startsWith(getWorkspaceDir())) {
+  // Geçersiz input kontrolü
+  if (!userPath || typeof userPath !== 'string') {
     return null;
   }
+  
+  // Null byte injection koruması (CWE-626)
+  if (userPath.includes('\0') || userPath.includes('%00')) {
+    console.warn('[safePath] Null byte injection attempt detected:', userPath);
+    return null;
+  }
+  
+  // Absolute path engelleme - workspace dışı path'leri reddet
+  if (path.isAbsolute(userPath)) {
+    console.warn('[safePath] Absolute path attempt detected:', userPath);
+    return null;
+  }
+  
+  // Parent directory traversal engelleme (CWE-22)
+  if (userPath.includes('..')) {
+    console.warn('[safePath] Directory traversal attempt detected:', userPath);
+    return null;
+  }
+  
+  // URL encoding bypass koruması
+  if (userPath.includes('%2e') || userPath.includes('%2E')) {
+    console.warn('[safePath] URL encoded traversal attempt detected:', userPath);
+    return null;
+  }
+  
+  const workspaceDir = getWorkspaceDir();
+  const resolved = path.resolve(workspaceDir, userPath);
+  
+  // Path normalization - alternatif separator ve redundant karakterleri temizle
+  const normalizedResolved = path.normalize(resolved);
+  const normalizedWorkspace = path.normalize(workspaceDir);
+  
+  // Güvenlik: resolved path workspace içinde olmalı
+  // Hem normal separator hem de path sonu kontrolü
+  const withSeparator = normalizedWorkspace.endsWith(path.sep)
+    ? normalizedWorkspace
+    : normalizedWorkspace + path.sep;
+  
+  if (!normalizedResolved.startsWith(withSeparator) &&
+      normalizedResolved !== normalizedWorkspace) {
+    console.warn('[safePath] Path outside workspace detected:', { resolved, workspaceDir });
+    return null;
+  }
+  
   return resolved;
 }
 

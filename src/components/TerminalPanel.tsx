@@ -147,7 +147,8 @@ const TerminalPanel = React.memo(function TerminalPanel({ onClose, logs, isAgent
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => setActiveTab('agent')}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer ${
+            aria-label="View Agent Output"
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary ${
               activeTab === 'agent' ? 'bg-white/[0.06] text-text/70' : 'text-text/30 hover:text-text/50'
             }`}
           >
@@ -156,7 +157,8 @@ const TerminalPanel = React.memo(function TerminalPanel({ onClose, logs, isAgent
           </button>
           <button
             onClick={handleTerminalTabClick}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer ${
+            aria-label="View Terminal"
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary ${
               activeTab === 'terminal' ? 'bg-white/[0.06] text-text/70' : 'text-text/30 hover:text-text/50'
             }`}
           >
@@ -172,7 +174,8 @@ const TerminalPanel = React.memo(function TerminalPanel({ onClose, logs, isAgent
 
         <button
           onClick={onClose}
-          className="p-1 text-text/20 hover:text-text/50 cursor-pointer transition-all rounded-md hover:bg-white/[0.04] ml-2"
+          aria-label="Close Terminal"
+          className="p-1 text-text/20 hover:text-text/50 cursor-pointer transition-all rounded-md hover:bg-white/[0.04] ml-2 focus-visible:ring-2 focus-visible:ring-primary"
           title="Close Terminal"
         >
           <X size={13} />

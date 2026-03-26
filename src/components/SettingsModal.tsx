@@ -37,7 +37,7 @@ const SettingsModal = React.memo(function SettingsModal({
             <Settings size={18} className="text-primary" />
             Settings
           </h2>
-          <button onClick={onClose} className="text-text/30 hover:text-text transition-colors cursor-pointer p-1 rounded-lg hover:bg-white/[0.04]">
+          <button onClick={onClose} aria-label="Close settings" className="text-text/30 hover:text-text transition-colors cursor-pointer p-1 rounded-lg hover:bg-white/[0.04] focus-visible:ring-2 focus-visible:ring-primary">
             <X size={18} />
           </button>
         </div>
@@ -88,7 +88,7 @@ const SettingsModal = React.memo(function SettingsModal({
         </div>
         
         <div className="px-6 py-4 border-t border-white/[0.06] bg-white/[0.02] flex items-center justify-between">
-          <button 
+          <button
             onClick={() => {
               if (confirm('Are you sure you want to clear all data? This cannot be undone.')) {
                  localStorage.clear();
@@ -96,7 +96,8 @@ const SettingsModal = React.memo(function SettingsModal({
                  window.location.reload();
               }
             }}
-            className="flex items-center gap-2 px-3 py-1.5 text-[11px] font-semibold text-red-400/70 hover:text-red-400 hover:bg-red-500/[0.06] rounded-lg transition-all uppercase tracking-wider cursor-pointer"
+            aria-label="Reset Studio"
+            className="flex items-center gap-2 px-3 py-1.5 text-[11px] font-semibold text-red-400/70 hover:text-red-400 hover:bg-red-500/[0.06] rounded-lg transition-all uppercase tracking-wider cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
           >
             <Trash2 size={13} />
             Reset Studio

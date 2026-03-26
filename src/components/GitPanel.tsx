@@ -73,7 +73,8 @@ const GitPanel = React.memo(function GitPanel({
           <span className="text-[10px] font-semibold text-text/30 uppercase tracking-[0.15em]">Remote</span>
           <button
             onClick={() => onSetIsSettingRemote(!isSettingRemote)}
-            className="text-text/25 hover:text-text/60 transition-colors cursor-pointer"
+            aria-label="Set remote URL"
+            className="text-text/25 hover:text-text/60 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
           >
             <Settings size={13} />
           </button>
@@ -89,7 +90,8 @@ const GitPanel = React.memo(function GitPanel({
             />
             <button
               onClick={onGitRemote}
-              className="text-[11px] bg-primary/15 text-primary px-2.5 rounded-lg hover:bg-primary/20 transition-colors cursor-pointer"
+              aria-label="Save remote URL"
+              className="text-[11px] bg-primary/15 text-primary px-2.5 rounded-lg hover:bg-primary/20 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
             >
               Save
             </button>
@@ -102,14 +104,16 @@ const GitPanel = React.memo(function GitPanel({
           <button
             onClick={onGitPull}
             disabled={!remoteUrl}
-            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-medium bg-white/[0.03] hover:bg-white/[0.06] rounded-lg disabled:opacity-30 transition-colors cursor-pointer text-text/50"
+            aria-label="Pull changes"
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-medium bg-white/[0.03] hover:bg-white/[0.06] rounded-lg disabled:opacity-30 transition-colors cursor-pointer text-text/50 focus-visible:ring-2 focus-visible:ring-primary"
           >
             <GitPullRequest size={12} /> Pull
           </button>
           <button
             onClick={onGitPush}
             disabled={!remoteUrl}
-            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-medium bg-white/[0.03] hover:bg-white/[0.06] rounded-lg disabled:opacity-30 transition-colors cursor-pointer text-text/50"
+            aria-label="Push changes"
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-medium bg-white/[0.03] hover:bg-white/[0.06] rounded-lg disabled:opacity-30 transition-colors cursor-pointer text-text/50 focus-visible:ring-2 focus-visible:ring-primary"
           >
             <Send size={12} /> Push
           </button>
@@ -142,7 +146,8 @@ const GitPanel = React.memo(function GitPanel({
           <span className="text-[10px] font-semibold text-text/30 uppercase tracking-[0.15em]">Staged Changes ({status.staged.length})</span>
           <button
             onClick={() => onGitUnstage('.')}
-            className="text-text/25 hover:text-text/60 transition-colors cursor-pointer"
+            aria-label="Unstage all changes"
+            className="text-text/25 hover:text-text/60 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
             title="Unstage All"
           >
             <MinusCircle size={13} />
@@ -154,7 +159,8 @@ const GitPanel = React.memo(function GitPanel({
               <span className="truncate">{file}</span>
               <button
                 onClick={() => onGitUnstage(file)}
-                className="text-text/25 hover:text-text/60 transition-colors cursor-pointer shrink-0 ml-2"
+                aria-label={`Unstage ${file}`}
+                className="text-text/25 hover:text-text/60 transition-colors cursor-pointer shrink-0 ml-2 focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <MinusCircle size={12} />
               </button>
@@ -169,7 +175,8 @@ const GitPanel = React.memo(function GitPanel({
           <span className="text-[10px] font-semibold text-text/30 uppercase tracking-[0.15em]">Changes ({status.modified.length + status.not_added.length + status.deleted.length})</span>
           <button
             onClick={() => onGitStage('.')}
-            className="text-text/25 hover:text-text/60 transition-colors cursor-pointer"
+            aria-label="Stage all changes"
+            className="text-text/25 hover:text-text/60 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
             title="Stage All"
           >
             <PlusCircle size={13} />
@@ -181,7 +188,8 @@ const GitPanel = React.memo(function GitPanel({
               <span className="truncate">{file}</span>
               <button
                 onClick={() => onGitStage(file)}
-                className="text-text/25 hover:text-text/60 transition-colors cursor-pointer shrink-0 ml-2"
+                aria-label={`Stage ${file}`}
+                className="text-text/25 hover:text-text/60 transition-colors cursor-pointer shrink-0 ml-2 focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <PlusCircle size={12} />
               </button>
@@ -192,7 +200,8 @@ const GitPanel = React.memo(function GitPanel({
               <span className="truncate">{file}</span>
               <button
                 onClick={() => onGitStage(file)}
-                className="text-text/25 hover:text-text/60 transition-colors cursor-pointer shrink-0 ml-2"
+                aria-label={`Stage ${file}`}
+                className="text-text/25 hover:text-text/60 transition-colors cursor-pointer shrink-0 ml-2 focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <PlusCircle size={12} />
               </button>
@@ -203,7 +212,8 @@ const GitPanel = React.memo(function GitPanel({
               <span className="truncate">{file}</span>
               <button
                 onClick={() => onGitStage(file)}
-                className="text-text/25 hover:text-text/60 transition-colors cursor-pointer shrink-0 ml-2"
+                aria-label={`Stage ${file}`}
+                className="text-text/25 hover:text-text/60 transition-colors cursor-pointer shrink-0 ml-2 focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <PlusCircle size={12} />
               </button>

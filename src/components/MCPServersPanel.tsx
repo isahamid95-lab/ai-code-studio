@@ -101,9 +101,10 @@ export function MCPServersPanel({ onConnect }: { onConnect: (name: string) => vo
                   <button
                     onClick={() => handleConnect(p)}
                     disabled={isConnected || isConnecting}
-                    className={`w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-                      isConnected 
-                        ? 'bg-transparent text-text/20 cursor-default' 
+                    aria-label={`Connect to ${p.name}`}
+                    className={`w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary ${
+                      isConnected
+                        ? 'bg-transparent text-text/20 cursor-default'
                         : isConnecting
                         ? 'bg-white/5 text-text/50'
                         : 'bg-white/5 hover:bg-white/10 text-text/80 hover:text-white border border-white/5 hover:border-white/10'
